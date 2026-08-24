@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
+
+import yaml
 
 from .models import EvidenceClaim, ExperimentPlan, MemoryItem, PlanStatus, utc_now
-
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
@@ -46,6 +48,14 @@ CREATE TABLE IF NOT EXISTS traces (
     payload TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS plan_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    reason TEXT,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -55,6 +65,8 @@ class Store:
         self.state_dir = self.project_root / ".reproflow"
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.state_dir / "reproflow.db"
+        self.plans_dir = self.state_dir / "plans"
+        self.plans_dir.mkdir(parents=True, exist_ok=True)
         with self.connection() as connection:
             connection.executescript(SCHEMA)
 
@@ -74,9 +86,25 @@ class Store:
             connection.execute(
                 """INSERT INTO plans(plan_id, payload, status, created_at)
                    VALUES (?, ?, ?, ?)
-                   ON CONFLICT(plan_id) DO UPDATE SET payload=excluded.payload, status=excluded.status""",
+                   ON CONFLICT(plan_id) DO UPDATE SET
+                   payload=excluded.payload, status=excluded.status""",
                 (plan.plan_id, payload, plan.status.value, plan.created_at.isoformat()),
             )
+        self.plan_path(plan.plan_id).write_text(
+            yaml.safe_dump(
+                plan.model_dump(mode="json"),
+                sort_keys=False,
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+
+    def plan_path(self, plan_id: str) -> Path:
+        return self.plans_dir / f"{plan_id}.yaml"
+
+    def load_plan_yaml(self, path: str | Path) -> ExperimentPlan:
+        payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        return ExperimentPlan.model_validate(payload)
 
     def get_plan(self, plan_id: str) -> ExperimentPlan:
         with self.connection() as connection:
@@ -89,25 +117,61 @@ class Store:
 
     def list_plans(self) -> list[ExperimentPlan]:
         with self.connection() as connection:
-            rows = connection.execute("SELECT payload FROM plans ORDER BY created_at DESC").fetchall()
+            rows = connection.execute(
+                "SELECT payload FROM plans ORDER BY created_at DESC"
+            ).fetchall()
         return [ExperimentPlan.model_validate_json(row["payload"]) for row in rows]
 
-    def approve_plan(self, plan_id: str, actor: str) -> ExperimentPlan:
+    def approve_plan(self, plan_id: str, actor: str, reason: str | None = None) -> ExperimentPlan:
         plan = self.get_plan(plan_id)
         plan.status = PlanStatus.APPROVED
         plan.approved_by = actor
         plan.approved_at = utc_now()
         self.save_plan(plan)
+        self.add_plan_event(plan_id, "approved", actor, reason)
         return plan
 
-    def save_workflow(self, workflow_id: str, plan_id: str, stage: str, payload: dict[str, Any]) -> None:
+    def reject_plan(self, plan_id: str, actor: str, reason: str) -> ExperimentPlan:
+        plan = self.get_plan(plan_id)
+        plan.status = PlanStatus.REJECTED
+        self.save_plan(plan)
+        self.add_plan_event(plan_id, "rejected", actor, reason)
+        return plan
+
+    def add_plan_event(
+        self, plan_id: str, action: str, actor: str, reason: str | None = None
+    ) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """INSERT INTO plan_events(plan_id, action, actor, reason, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (plan_id, action, actor, reason, utc_now().isoformat()),
+            )
+
+    def list_plan_events(self, plan_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM plan_events WHERE plan_id = ? ORDER BY id", (plan_id,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def save_workflow(
+        self, workflow_id: str, plan_id: str, stage: str, payload: dict[str, Any]
+    ) -> None:
         with self.connection() as connection:
             connection.execute(
                 """INSERT INTO workflows(workflow_id, plan_id, stage, payload, updated_at)
                    VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(workflow_id) DO UPDATE SET
-                   stage=excluded.stage, payload=excluded.payload, updated_at=excluded.updated_at""",
-                (workflow_id, plan_id, stage, json.dumps(payload, default=str), utc_now().isoformat()),
+                   stage=excluded.stage, payload=excluded.payload,
+                   updated_at=excluded.updated_at""",
+                (
+                    workflow_id,
+                    plan_id,
+                    stage,
+                    json.dumps(payload, default=str),
+                    utc_now().isoformat(),
+                ),
             )
 
     def get_workflow(self, workflow_id: str) -> dict[str, Any]:
@@ -180,7 +244,8 @@ class Store:
             connection.execute(
                 """INSERT INTO claims(claim_id, workflow_id, status, payload, created_at)
                    VALUES (?, ?, ?, ?, ?)
-                   ON CONFLICT(claim_id) DO UPDATE SET status=excluded.status, payload=excluded.payload""",
+                   ON CONFLICT(claim_id) DO UPDATE SET
+                   status=excluded.status, payload=excluded.payload""",
                 (
                     claim.claim_id,
                     claim.workflow_id,
@@ -201,13 +266,16 @@ class Store:
 
     def list_claims(self) -> list[EvidenceClaim]:
         with self.connection() as connection:
-            rows = connection.execute("SELECT payload FROM claims ORDER BY created_at DESC").fetchall()
+            rows = connection.execute(
+                "SELECT payload FROM claims ORDER BY created_at DESC"
+            ).fetchall()
         return [EvidenceClaim.model_validate_json(row["payload"]) for row in rows]
 
     def add_trace(self, workflow_id: str, node: str, event: str, payload: dict[str, Any]) -> None:
         with self.connection() as connection:
             connection.execute(
-                "INSERT INTO traces(workflow_id, node, event, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+                """INSERT INTO traces(workflow_id, node, event, payload, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
                 (workflow_id, node, event, json.dumps(payload, default=str), utc_now().isoformat()),
             )
 
@@ -225,4 +293,3 @@ class Store:
             }
             for row in rows
         ]
-

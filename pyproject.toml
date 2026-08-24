@@ -7,7 +7,11 @@ requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "ReproFlow contributors" }]
 dependencies = [
+  "openai>=1.50,<3",
+  "pydantic>=2.9,<3",
+  "pyyaml>=6.0,<7",
   "scikit-learn>=1.5,<2",
+  "typer>=0.15,<1",
 ]
 
 [project.optional-dependencies]
@@ -17,19 +21,18 @@ agent = [
   "langgraph>=0.6,<2",
   "langgraph-checkpoint-sqlite>=2.0,<4",
   "matplotlib>=3.9,<4",
-  "openai>=1.50,<3",
   "pandas>=2.2,<4",
-  "pydantic>=2.9,<3",
   "pypdf>=5,<7",
-  "pyyaml>=6.0,<7",
   "streamlit>=1.40,<2",
-  "typer>=0.15,<1",
 ]
 dev = [
   "pytest>=8.3,<9",
   "pytest-cov>=6,<8",
   "ruff>=0.9,<1",
 ]
+
+[project.scripts]
+reproflow = "reproflow.cli:app"
 
 [build-system]
 requires = ["hatchling"]

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Literal, TypedDict
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def utc_now() -> datetime:
@@ -84,11 +84,41 @@ class ExperimentPlan(BaseModel):
             raise ValueError("baseline must match a variant name")
         return value
 
+    @model_validator(mode="after")
+    def matrix_must_be_unambiguous(self) -> ExperimentPlan:
+        variant_names = [variant.name for variant in self.variants]
+        metric_names = [metric.name for metric in self.metrics]
+        if not variant_names:
+            raise ValueError("at least one variant is required")
+        if len(set(variant_names)) != len(variant_names):
+            raise ValueError("variant names must be unique")
+        if len(set(self.seeds)) != len(self.seeds):
+            raise ValueError("seeds must be unique")
+        if not metric_names:
+            raise ValueError("at least one metric is required")
+        if len(set(metric_names)) != len(metric_names):
+            raise ValueError("metric names must be unique")
+        return self
+
 
 class PreflightCheck(BaseModel):
     name: str
     passed: bool
     detail: str
+    blocking: bool = True
+
+
+class PreflightReport(BaseModel):
+    plan_id: str
+    checks: list[PreflightCheck]
+
+    @property
+    def safe(self) -> bool:
+        return all(check.passed or not check.blocking for check in self.checks)
+
+    @property
+    def blocking_failures(self) -> list[PreflightCheck]:
+        return [check for check in self.checks if check.blocking and not check.passed]
 
 
 class RunRecord(BaseModel):
@@ -185,4 +215,3 @@ class WorkflowState(TypedDict, total=False):
 
 def project_path(root: str | Path, relative: str) -> Path:
     return (Path(root).resolve() / relative).resolve()
-

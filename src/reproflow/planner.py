@@ -12,7 +12,9 @@ from .models import ContextPack, ExperimentPlan, MetricSpec, VariantSpec
 
 
 class Planner(Protocol):
-    def create_plan(self, goal: str, context: ContextPack, project_root: Path) -> ExperimentPlan: ...
+    def create_plan(
+        self, goal: str, context: ContextPack, project_root: Path
+    ) -> ExperimentPlan: ...
 
 
 class MockPlanner:
@@ -66,8 +68,9 @@ class APIPlanner:
             "memories": [item.model_dump(mode="json") for item in context.retrieved_memories],
             "required_shape_example": example,
             "rule": (
-                "Return only one JSON object. Keep the exact safe sklearn command, variants, seeds, "
-                "metrics and script_path from the example. You may refine title, hypothesis and goal."
+                "Return only one JSON object. Keep the exact safe sklearn command, "
+                "variants, seeds, metrics and script_path from the example. "
+                "You may refine title, hypothesis and goal."
             ),
         }
         response = self.client.chat.completions.create(
@@ -82,12 +85,19 @@ class APIPlanner:
         content = response.choices[0].message.content
         if not content:
             raise RuntimeError("Planner returned no content")
-        return ExperimentPlan.model_validate_json(content)
+        candidate = ExperimentPlan.model_validate_json(content)
+        safe = MockPlanner().create_plan(goal, context, project_root)
+        # The model may improve scientific prose, but never controls executable fields.
+        safe.title = candidate.title
+        safe.hypothesis = candidate.hypothesis
+        safe.goal = goal
+        return safe
 
 
 def get_planner(mode: str | None = None) -> Planner:
     selected = (mode or os.getenv("REPROFLOW_PLANNER", "mock")).lower()
     if selected == "api":
         return APIPlanner()
+    if selected != "mock":
+        raise ValueError(f"Unsupported planner mode: {selected}")
     return MockPlanner()
-

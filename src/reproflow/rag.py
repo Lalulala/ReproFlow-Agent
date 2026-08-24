@@ -10,7 +10,6 @@ from pathlib import Path
 
 from .models import RetrievedItem
 
-
 TOKEN_RE = re.compile(r"[A-Za-z0-9_\-]+|[\u4e00-\u9fff]")
 
 
@@ -91,7 +90,11 @@ class LexicalKnowledgeBase:
                     except ImportError:
                         continue
         self.index_path.write_text(
-            json.dumps([item.model_dump(mode="json") for item in items], ensure_ascii=False, indent=2),
+            json.dumps(
+                [item.model_dump(mode="json") for item in items],
+                ensure_ascii=False,
+                indent=2,
+            ),
             encoding="utf-8",
         )
         return len(items)
@@ -111,7 +114,8 @@ class LexicalKnowledgeBase:
             return []
         scored: list[tuple[float, RetrievedItem]] = []
         for item in items:
-            document_counts = Counter(tokenize(item.title + " " + (item.section or "") + " " + item.content))
+            document = item.title + " " + (item.section or "") + " " + item.content
+            document_counts = Counter(tokenize(document))
             overlap = set(query_counts) & set(document_counts)
             numerator = sum(query_counts[token] * document_counts[token] for token in overlap)
             denominator = math.sqrt(sum(v * v for v in query_counts.values())) * math.sqrt(
@@ -181,7 +185,9 @@ class ChromaKnowledgeBase(LexicalKnowledgeBase):
         metadatas = result.get("metadatas", [[]])[0]
         distances = result.get("distances", [[]])[0]
         ids = result.get("ids", [[]])[0]
-        for source_id, content, metadata, distance in zip(ids, documents, metadatas, distances):
+        for source_id, content, metadata, distance in zip(
+            ids, documents, metadatas, distances, strict=True
+        ):
             items.append(
                 RetrievedItem(
                     source_id=source_id,
@@ -211,4 +217,3 @@ def get_knowledge_base(project_root: str | Path):
             if backend == "chroma":
                 raise
     return LexicalKnowledgeBase(project_root)
-

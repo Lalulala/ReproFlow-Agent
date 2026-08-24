@@ -6,7 +6,6 @@ from .models import ContextPack
 from .rag import get_knowledge_base
 from .storage import Store
 
-
 STAGE_POLICIES = {
     "planner": {
         "tools": ["search_knowledge", "search_memories", "create_plan"],
@@ -57,4 +56,3 @@ def build_context_pack(project_root: str | Path, stage: str, task: str) -> Conte
         allowed_tools=policy["tools"],
         token_budget=policy["budget"],
     )
-

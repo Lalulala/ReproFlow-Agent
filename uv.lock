@@ -3,10 +3,10 @@ revision = 3
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'win32'",
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
@@ -1993,7 +1993,11 @@ name = "reproflow-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "scikit-learn" },
+    { name = "typer" },
 ]
 
 [package.optional-dependencies]
@@ -2003,13 +2007,9 @@ agent = [
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
     { name = "matplotlib" },
-    { name = "openai" },
     { name = "pandas" },
-    { name = "pydantic" },
     { name = "pypdf" },
-    { name = "pyyaml" },
     { name = "streamlit" },
-    { name = "typer" },
 ]
 dev = [
     { name = "pytest" },
@@ -2024,17 +2024,17 @@ requires-dist = [
     { name = "langgraph", marker = "extra == 'agent'", specifier = ">=0.6,<2" },
     { name = "langgraph-checkpoint-sqlite", marker = "extra == 'agent'", specifier = ">=2.0,<4" },
     { name = "matplotlib", marker = "extra == 'agent'", specifier = ">=3.9,<4" },
-    { name = "openai", marker = "extra == 'agent'", specifier = ">=1.50,<3" },
+    { name = "openai", specifier = ">=1.50,<3" },
     { name = "pandas", marker = "extra == 'agent'", specifier = ">=2.2,<4" },
-    { name = "pydantic", marker = "extra == 'agent'", specifier = ">=2.9,<3" },
+    { name = "pydantic", specifier = ">=2.9,<3" },
     { name = "pypdf", marker = "extra == 'agent'", specifier = ">=5,<7" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3,<9" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6,<8" },
-    { name = "pyyaml", marker = "extra == 'agent'", specifier = ">=6.0,<7" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9,<1" },
     { name = "scikit-learn", specifier = ">=1.5,<2" },
     { name = "streamlit", marker = "extra == 'agent'", specifier = ">=1.40,<2" },
-    { name = "typer", marker = "extra == 'agent'", specifier = ">=0.15,<1" },
+    { name = "typer", specifier = ">=0.15,<1" },
 ]
 provides-extras = ["agent", "dev"]
 
