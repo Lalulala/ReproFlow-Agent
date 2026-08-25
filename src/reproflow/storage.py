@@ -278,6 +278,27 @@ class Store:
         scored.sort(key=lambda pair: (pair[0], pair[1].created_at), reverse=True)
         return [item for score, item in scored[:limit] if score > 0 or not terms]
 
+    def list_memories(self, limit: int = 100) -> list[MemoryItem]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM memories ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [
+            MemoryItem(
+                memory_id=row["memory_id"],
+                kind=row["kind"],
+                text=row["text"],
+                workflow_id=row["workflow_id"],
+                tags=json.loads(row["tags"]),
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def delete_workflow_memories(self, workflow_id: str) -> None:
+        with self.connection() as connection:
+            connection.execute("DELETE FROM memories WHERE workflow_id = ?", (workflow_id,))
+
     def save_claim(self, claim: EvidenceClaim) -> None:
         with self.connection() as connection:
             connection.execute(

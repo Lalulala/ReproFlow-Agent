@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from .models import ContextPack
 from .rag import get_knowledge_base
@@ -35,17 +36,24 @@ STAGE_POLICIES = {
 }
 
 
-def build_context_pack(project_root: str | Path, stage: str, task: str) -> ContextPack:
+def build_context_pack(
+    project_root: str | Path,
+    stage: str,
+    task: str,
+    verified_evidence: list[dict[str, Any]] | None = None,
+) -> ContextPack:
     root = Path(project_root).resolve()
     policy = STAGE_POLICIES[stage]
     store = Store(root)
-    knowledge = get_knowledge_base(root).search(task, limit=5)
-    memories = store.search_memories(task, limit=5)
-    evidence = [
-        claim.model_dump(mode="json")
-        for claim in store.list_claims()
-        if claim.status.value != "stale"
-    ][:5]
+    knowledge = get_knowledge_base(root).search(task, limit=5) if stage == "planner" else []
+    memories = store.search_memories(task, limit=5) if stage == "planner" else []
+    evidence = verified_evidence or []
+    if stage == "planner" and not evidence:
+        evidence = [
+            claim.model_dump(mode="json")
+            for claim in store.list_claims()
+            if claim.status.value not in {"proposed", "stale"}
+        ][:5]
     return ContextPack(
         stage=stage,
         task=task,

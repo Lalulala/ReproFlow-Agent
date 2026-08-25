@@ -176,6 +176,7 @@ class EvidenceClaim(BaseModel):
     claim_id: str = Field(default_factory=lambda: f"C-{uuid4().hex[:8].upper()}")
     claim: str
     status: ClaimStatus = ClaimStatus.PROPOSED
+    proposed_status: Literal["supported", "contradicted", "inconclusive"]
     workflow_id: str
     experiment_ids: list[str]
     metric: str
@@ -190,7 +191,9 @@ class EvidenceClaim(BaseModel):
     artifacts: list[str]
     paper_sections: list[str] = Field(default_factory=lambda: ["experiments.results"])
     created_at: datetime = Field(default_factory=utc_now)
+    reviewed_by: str | None = None
     reviewed_at: datetime | None = None
+    invalidated_at: datetime | None = None
     stale_reason: str | None = None
 
 

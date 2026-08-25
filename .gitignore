@@ -13,3 +13,4 @@ runs/
 paper/evidence_registry.jsonl
 paper/generated_results.md
 knowledge/.chroma/
+:memory:.ses

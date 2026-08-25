@@ -7,6 +7,8 @@ from typing import Any
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
+from .evidence import propose_evidence as create_evidence_proposals
+from .memory import remember_workflow
 from .metrics import (
     aggregate_rows,
     parse_run_metrics,
@@ -18,6 +20,8 @@ from .metrics import (
 )
 from .models import ExperimentPlan, PlanStatus, RunRecord, RunStatus, WorkflowState
 from .preflight import run_preflight
+from .rag import get_knowledge_base
+from .reporting import generate_report as render_report
 from .runner import SimulatedCrashError, execute_matrix
 from .storage import Store
 
@@ -168,6 +172,37 @@ class WorkflowNodes:
         )
         return result
 
+    def analyze_results(self, state: WorkflowState) -> dict[str, Any]:
+        plan = ExperimentPlan.model_validate(state["plan"])
+        records = [RunRecord.model_validate(payload) for payload in state["run_records"]]
+        memories = remember_workflow(self.root, state["workflow_id"], plan, records)
+        updated: WorkflowState = dict(state)
+        self._save(updated, "analyze_results")
+        self.store.add_trace(
+            state["workflow_id"],
+            "analyze_results",
+            "completed",
+            {"memory_ids": [memory.memory_id for memory in memories]},
+        )
+        return {"stage": "analyze_results"}
+
+    def generate_report(self, state: WorkflowState) -> dict[str, Any]:
+        path = render_report(self.root, state["workflow_id"], narrator_mode="mock")
+        get_knowledge_base(self.root).index()
+        report_path = _relative(self.root, path)
+        updated: WorkflowState = dict(state)
+        updated["report_path"] = report_path
+        self._save(updated, "generate_report")
+        return {"report_path": report_path, "stage": "generate_report"}
+
+    def propose_evidence(self, state: WorkflowState) -> dict[str, Any]:
+        claims = create_evidence_proposals(self.root, state["workflow_id"])
+        proposed = [claim.model_dump(mode="json") for claim in claims]
+        updated: WorkflowState = dict(state)
+        updated["proposed_claims"] = proposed
+        self._save(updated, "propose_evidence")
+        return {"proposed_claims": proposed, "stage": "propose_evidence"}
+
     def complete(self, state: WorkflowState) -> dict[str, Any]:
         records = [RunRecord.model_validate(payload) for payload in state["run_records"]]
         all_succeeded = bool(records) and all(
@@ -197,11 +232,17 @@ def build_graph(project_root: Path, checkpointer: SqliteSaver):
     builder.add_node("execute_runs", nodes.execute_runs)
     builder.add_node("parse_metrics", nodes.parse_metrics)
     builder.add_node("aggregate_results", nodes.aggregate_results)
+    builder.add_node("analyze_results", nodes.analyze_results)
+    builder.add_node("generate_report", nodes.generate_report)
+    builder.add_node("propose_evidence", nodes.propose_evidence)
     builder.add_node("complete", nodes.complete)
     builder.add_edge(START, "execute_runs")
     builder.add_edge("execute_runs", "parse_metrics")
     builder.add_edge("parse_metrics", "aggregate_results")
-    builder.add_edge("aggregate_results", "complete")
+    builder.add_edge("aggregate_results", "analyze_results")
+    builder.add_edge("analyze_results", "generate_report")
+    builder.add_edge("generate_report", "propose_evidence")
+    builder.add_edge("propose_evidence", "complete")
     builder.add_edge("complete", END)
     return builder.compile(checkpointer=checkpointer, name="reproflow-day3-day4")
 

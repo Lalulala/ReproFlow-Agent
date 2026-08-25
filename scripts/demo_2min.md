@@ -1,14 +1,12 @@
-# ReproFlow Day 4 两分钟演示讲稿
+# ReproFlow Day 6 两分钟演示讲稿
 
-1. 输入实验目标，用 Mock 或 DeepSeek Planner 生成结构化 YAML。
-2. 打开计划，指出模型、seed、指标、baseline、timeout 和受控 argv。
-3. 运行 `preflight`，展示命令、路径、依赖和产物覆盖检查。
-4. 由 Ethan 执行 `approve`，强调未经审批无法运行。
-5. 执行 `reproflow run <plan_id>`，展示 LangGraph Trace 和九个独立目录。
-6. 打开一个 `environment.json`、`metrics.json` 和 `manifest.json`，说明 commit、
-   配置哈希、脚本哈希和指标溯源。
-7. 打开 `summary.csv`、`aggregate.csv` 和 `plots/metrics.png`，指出 mean、std、
-   best 和 baseline delta。
-8. 切换到故障工作流：展示失败、超时和部分成功的 `failures.csv`。
-9. 执行 `reproflow resume <workflow_id>`，展示成功任务 attempt 不变、仅失败任务重试。
-10. 以 Day 5/6 路线图收尾：记忆/RAG、Markdown 报告和 Evidence Registry。
+1. 输入实验目标，展示 Planner ContextPack 中的本地协议、历史 report 和 lesson。
+2. 打开生成的 YAML，指出 LLM 不能控制命令、路径、seed 与指标。
+3. 运行 `preflight` 并由 Ethan 审批计划。
+4. 执行 `reproflow run <plan_id>`，展示 LangGraph Trace 和九个独立运行目录。
+5. 打开 `summary.csv`、`aggregate.csv` 与图表，指出 mean、std、best 和 baseline delta。
+6. 打开 `report.md`，说明表格数字直接来自验证文件，Narrator 只负责无数字解释。
+7. 打开 Knowledge 页面，检索“最佳 ROC-AUC 模型”，展示路径、章节、分数和内容哈希。
+8. 打开 Evidence 页面，选择一个 Claim，查看 runs、commit、配置哈希和 artifacts。
+9. 演示未审批时同步被阻断；由 Ethan 审批后同步两个 `paper/` 证据文件。
+10. 切换到故障 Trace，说明 resume 只重试失败任务；以 Day 7 eval 和发布材料收尾。

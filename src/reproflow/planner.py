@@ -44,7 +44,23 @@ class MockPlanner:
             baseline="logistic_regression",
             timeout_seconds=120,
             script_path=script,
-            context_sources=[item.model_dump() for item in context.retrieved_knowledge],
+            context_sources=[
+                *[
+                    {"kind": "knowledge", **item.model_dump(mode="json")}
+                    for item in context.retrieved_knowledge
+                ],
+                *[
+                    {
+                        "kind": "memory",
+                        "memory_id": item.memory_id,
+                        "memory_type": item.kind,
+                        "workflow_id": item.workflow_id,
+                        "text": item.text,
+                        "tags": item.tags,
+                    }
+                    for item in context.retrieved_memories
+                ],
+            ],
         )
 
 

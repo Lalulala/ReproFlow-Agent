@@ -17,6 +17,14 @@ def tokenize(text: str) -> list[str]:
     return [token.lower() for token in TOKEN_RE.findall(text)]
 
 
+def _source_type(path: Path) -> str:
+    if "runs" in path.parts:
+        return "experiment_report"
+    if "paper" in path.parts:
+        return "paper"
+    return "project_knowledge"
+
+
 def split_markdown(path: Path, text: str) -> list[RetrievedItem]:
     chunks: list[RetrievedItem] = []
     section = "Document"
@@ -29,11 +37,13 @@ def split_markdown(path: Path, text: str) -> list[RetrievedItem]:
         if not content:
             return
         digest = hashlib.sha256(content.encode()).hexdigest()
+        source_digest = hashlib.sha256(f"{path}:{section}:{digest}".encode()).hexdigest()
         chunks.append(
             RetrievedItem(
-                source_id=digest[:16],
+                source_id=source_digest[:16],
                 title=path.stem,
                 content=content,
+                source_type=_source_type(path),
                 path=str(path),
                 section=section,
                 tags=[part.lower() for part in path.stem.replace("_", "-").split("-")],
@@ -63,10 +73,17 @@ class LexicalKnowledgeBase:
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
 
     def index(self, knowledge_dir: str | Path | None = None) -> int:
-        source = Path(knowledge_dir or self.project_root / "knowledge").resolve()
+        if knowledge_dir:
+            sources = [Path(knowledge_dir).resolve()]
+        else:
+            sources = [self.project_root / "knowledge", self.project_root / "paper"]
+            sources.extend(sorted((self.project_root / "runs").glob("*/report.md")))
         items: list[RetrievedItem] = []
-        if source.exists():
-            for path in sorted(source.rglob("*")):
+        for source in sources:
+            if not source.exists():
+                continue
+            paths = [source] if source.is_file() else sorted(source.rglob("*"))
+            for path in paths:
                 if path.suffix.lower() in {".md", ".txt"}:
                     items.extend(split_markdown(path, path.read_text(encoding="utf-8")))
                 elif path.suffix.lower() == ".pdf":
@@ -77,17 +94,21 @@ class LexicalKnowledgeBase:
                         for page_number, page in enumerate(reader.pages, 1):
                             text = page.extract_text() or ""
                             digest = hashlib.sha256(text.encode()).hexdigest()
+                            source_digest = hashlib.sha256(
+                                f"{path}:{page_number}:{digest}".encode()
+                            ).hexdigest()
                             items.append(
                                 RetrievedItem(
-                                    source_id=digest[:16],
+                                    source_id=source_digest[:16],
                                     title=path.stem,
                                     content=text[:3000],
+                                    source_type="paper",
                                     path=str(path),
                                     page=page_number,
                                     content_hash=digest,
                                 )
                             )
-                    except ImportError:
+                    except (ImportError, OSError):
                         continue
         self.index_path.write_text(
             json.dumps(
@@ -159,6 +180,7 @@ class ChromaKnowledgeBase(LexicalKnowledgeBase):
                         "page": item.page or 0,
                         "content_hash": item.content_hash,
                         "source_type": item.source_type,
+                        "tags": ",".join(item.tags),
                     }
                     for item in items
                 ],
@@ -170,6 +192,8 @@ class ChromaKnowledgeBase(LexicalKnowledgeBase):
         from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
         client = chromadb.PersistentClient(path=str(self.project_root / "knowledge" / ".chroma"))
+        if not self._items():
+            return []
         try:
             collection = client.get_collection(
                 self.collection_name, embedding_function=DefaultEmbeddingFunction()
@@ -197,6 +221,7 @@ class ChromaKnowledgeBase(LexicalKnowledgeBase):
                     section=metadata.get("section") or None,
                     page=metadata.get("page") or None,
                     source_type=metadata.get("source_type", "document"),
+                    tags=[tag for tag in metadata.get("tags", "").split(",") if tag],
                     content_hash=metadata["content_hash"],
                     score=1.0 / (1.0 + float(distance)),
                 )
@@ -207,6 +232,9 @@ class ChromaKnowledgeBase(LexicalKnowledgeBase):
 def get_knowledge_base(project_root: str | Path):
     backend = os.getenv("REPROFLOW_RAG_BACKEND", "auto").lower()
     if backend == "lexical":
+        return LexicalKnowledgeBase(project_root)
+    chroma_path = Path(project_root).resolve() / "knowledge" / ".chroma"
+    if backend == "auto" and not chroma_path.exists():
         return LexicalKnowledgeBase(project_root)
     if backend in {"auto", "chroma"}:
         try:

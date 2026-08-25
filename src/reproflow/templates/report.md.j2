@@ -1,0 +1,52 @@
+# ReproFlow Experiment Report
+
+## Experiment
+
+- Workflow: `{{ workflow_id }}`
+- Plan: `{{ plan.plan_id }}`
+- Goal: {{ plan.goal }}
+- Hypothesis: {{ plan.hypothesis }}
+- Baseline: `{{ plan.baseline }}`
+- Seeds: {{ plan.seeds | join(", ") }}
+
+## Reproducibility
+
+- Git commit: `{{ git_commit }}`
+- Configuration SHA256: `{{ config_hash }}`
+- Script SHA256: `{{ script_hash }}`
+- Per-run results: [`{{ summary_path }}`]({{ summary_path }})
+- Aggregate results: [`{{ aggregate_path }}`]({{ aggregate_path }})
+- Failure list: [`{{ failures_path }}`]({{ failures_path }})
+- Metric plot: [`{{ plot_path }}`]({{ plot_path }})
+
+## Verified aggregate results
+
+{% if aggregate_rows %}| {{ aggregate_headers | join(" | ") }} |
+|{% for header in aggregate_headers %} --- |{% endfor %}
+{% for row in aggregate_rows %}|{% for header in aggregate_headers %} {{ row[header] }} |{% endfor %}
+{% endfor %}{% else %}No verified aggregate results are available.
+{% endif %}
+
+## Run traceability
+
+| Run | Variant | Seed | Status | Metrics source | Manifest source |
+| --- | --- | ---: | --- | --- | --- |
+{% for row in run_rows %}| `{{ row.run_id }}` | {{ row.variant }} | {{ row.seed }} | {{ row.status }} | `{{ row.metrics_path }}` | `{{ row.manifest_path }}` |
+{% endfor %}
+
+## Interpretation
+
+{{ narrative.interpretation }}
+
+## Limitations
+
+{{ narrative.limitations }}
+
+## Next steps
+
+{{ narrative.next_steps }}
+
+## Context policy
+
+The reporter received only verified run and aggregate artifacts through a stage-specific
+`ContextPack`. It did not receive executable tools or unverified numerical claims.
