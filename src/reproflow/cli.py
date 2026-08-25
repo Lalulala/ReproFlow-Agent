@@ -11,7 +11,9 @@ from .approval import UnsafePlanError, approve_plan
 from .context import build_context_pack
 from .planner import get_planner
 from .preflight import run_preflight
+from .runner import SimulatedCrashError
 from .storage import Store
+from .workflow import resume_workflow, start_workflow
 
 app = typer.Typer(no_args_is_help=True, help="ReproFlow reproducible experiment workflow.")
 
@@ -111,6 +113,113 @@ def reject(
     store = Store(_root(project))
     plan = store.reject_plan(plan_id, actor, reason)
     typer.echo(f"Rejected: {plan.plan_id} by {actor}")
+
+
+def _run_ids(values: list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for value in values or []:
+        if ":" in value:
+            variant, seed = value.rsplit(":", 1)
+            normalized.append(f"{variant}-seed-{seed}")
+        else:
+            normalized.append(value)
+    return normalized
+
+
+def _print_workflow_result(state: dict) -> None:
+    records = state.get("run_records", [])
+    succeeded = sum(record["status"] == "succeeded" for record in records)
+    typer.echo(f"Workflow: {state['workflow_id']}")
+    typer.echo(f"Stage: {state['stage']}")
+    typer.echo(f"Runs: {succeeded}/{len(records)} succeeded")
+    for key in ("summary_path", "aggregate_path", "failures_path", "plot_path"):
+        if state.get(key):
+            typer.echo(f"{key}: {state[key]}")
+
+
+@app.command("run")
+def run_plan(
+    plan_id: Annotated[str, typer.Argument()],
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+    simulate_failure: Annotated[
+        list[str] | None,
+        typer.Option("--simulate-failure", help="Demo run as variant:seed; repeatable."),
+    ] = None,
+    simulate_timeout: Annotated[
+        list[str] | None,
+        typer.Option("--simulate-timeout", help="Demo run as variant:seed; repeatable."),
+    ] = None,
+    timeout_seconds: Annotated[
+        float | None,
+        typer.Option("--timeout-seconds", help="Timeout for injected timeout runs only."),
+    ] = None,
+    crash_after: Annotated[
+        int | None,
+        typer.Option("--crash-after", help="One-shot recovery demo after N executed runs."),
+    ] = None,
+) -> None:
+    """Execute an approved experiment plan through the checkpointed workflow."""
+    root = _root(project)
+    try:
+        state = start_workflow(
+            root,
+            plan_id,
+            failure_runs=_run_ids(simulate_failure),
+            timeout_runs=_run_ids(simulate_timeout),
+            timeout_seconds=timeout_seconds,
+            crash_after=crash_after,
+        )
+    except SimulatedCrashError as error:
+        typer.echo(f"Workflow interrupted safely: {error}", err=True)
+        typer.echo(f"Resume with: reproflow resume {plan_id}", err=True)
+        raise typer.Exit(2) from error
+    except (KeyError, ValueError) as error:
+        typer.echo(f"Run blocked: {error}", err=True)
+        raise typer.Exit(1) from error
+    _print_workflow_result(state)
+    if state["stage"] != "complete":
+        raise typer.Exit(1)
+
+
+@app.command("resume")
+def resume(
+    workflow_id: Annotated[str, typer.Argument()],
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+    keep_simulations: Annotated[
+        bool,
+        typer.Option("--keep-simulations", help="Repeat injected demo failures/timeouts."),
+    ] = False,
+) -> None:
+    """Resume a workflow without re-running successful tasks."""
+    root = _root(project)
+    try:
+        state = resume_workflow(root, workflow_id, keep_simulations=keep_simulations)
+    except SimulatedCrashError as error:
+        typer.echo(f"Workflow interrupted safely: {error}", err=True)
+        raise typer.Exit(2) from error
+    except (KeyError, ValueError) as error:
+        typer.echo(f"Resume blocked: {error}", err=True)
+        raise typer.Exit(1) from error
+    _print_workflow_result(state)
+    if state["stage"] != "complete":
+        raise typer.Exit(1)
+
+
+@app.command("workflow-show")
+def show_workflow(
+    workflow_id: Annotated[str, typer.Argument()],
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Show persisted workflow state and the agent trace."""
+    store = Store(_root(project))
+    try:
+        state = store.get_workflow(workflow_id)
+    except KeyError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    _print_workflow_result(state)
+    typer.echo("Trace:")
+    typer.echo(json.dumps(store.list_traces(workflow_id), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

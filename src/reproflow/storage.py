@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from .models import EvidenceClaim, ExperimentPlan, MemoryItem, PlanStatus, utc_now
+from .models import EvidenceClaim, ExperimentPlan, MemoryItem, PlanStatus, RunRecord, utc_now
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
@@ -55,6 +55,14 @@ CREATE TABLE IF NOT EXISTS plan_events (
     actor TEXT NOT NULL,
     reason TEXT,
     created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runs (
+    workflow_id TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (workflow_id, run_id)
 );
 """
 
@@ -138,6 +146,13 @@ class Store:
         self.add_plan_event(plan_id, "rejected", actor, reason)
         return plan
 
+    def complete_plan(self, plan_id: str) -> ExperimentPlan:
+        plan = self.get_plan(plan_id)
+        plan.status = PlanStatus.COMPLETED
+        self.save_plan(plan)
+        self.add_plan_event(plan_id, "completed", "workflow", "All runs succeeded")
+        return plan
+
     def add_plan_event(
         self, plan_id: str, action: str, actor: str, reason: str | None = None
     ) -> None:
@@ -200,6 +215,30 @@ class Store:
             }
             for row in rows
         ]
+
+    def save_run(self, record: RunRecord) -> None:
+        with self.connection() as connection:
+            connection.execute(
+                """INSERT INTO runs(workflow_id, run_id, status, payload, updated_at)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(workflow_id, run_id) DO UPDATE SET
+                   status=excluded.status, payload=excluded.payload,
+                   updated_at=excluded.updated_at""",
+                (
+                    record.workflow_id,
+                    record.run_id,
+                    record.status.value,
+                    record.model_dump_json(),
+                    utc_now().isoformat(),
+                ),
+            )
+
+    def list_runs(self, workflow_id: str) -> list[RunRecord]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT payload FROM runs WHERE workflow_id = ? ORDER BY run_id", (workflow_id,)
+            ).fetchall()
+        return [RunRecord.model_validate_json(row["payload"]) for row in rows]
 
     def add_memory(self, memory: MemoryItem) -> None:
         with self.connection() as connection:

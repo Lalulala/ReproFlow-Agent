@@ -8,6 +8,9 @@ license = { text = "MIT" }
 authors = [{ name = "ReproFlow contributors" }]
 dependencies = [
   "httpx[socks]>=0.28,<1",
+  "langgraph>=1.2,<2",
+  "langgraph-checkpoint-sqlite>=3.1,<4",
+  "matplotlib>=3.11,<4",
   "openai>=1.50,<3",
   "pydantic>=2.9,<3",
   "pyyaml>=6.0,<7",
@@ -19,9 +22,6 @@ dependencies = [
 agent = [
   "chromadb>=1.0,<2",
   "jinja2>=3.1,<4",
-  "langgraph>=0.6,<2",
-  "langgraph-checkpoint-sqlite>=2.0,<4",
-  "matplotlib>=3.9,<4",
   "pandas>=2.2,<4",
   "pypdf>=5,<7",
   "streamlit>=1.40,<2",

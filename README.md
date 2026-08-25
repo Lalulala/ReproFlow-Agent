@@ -2,34 +2,48 @@
 
 面向机器学习实验与论文证据管理的可复现 Agent 工作流系统。
 
-> 当前里程碑：Day 2 已完成。系统可以从自然语言目标生成结构化 YAML 实验计划，
-> 执行安全预检，并通过带审计记录的人工审批门控制后续运行。
+> 当前里程碑：Day 4 已完成。系统已走通“生成计划 → 人工审批 → 安全执行 →
+> 失败恢复 → 指标解析 → CSV 汇总 → 图表”的工程闭环。
 
 ## 当前能力
 
 ### Day 1：可复现实验循环
 
-- Apple Silicon / CPU 可运行的 sklearn 乳腺癌分类实验。
-- Logistic Regression、Random Forest、SVM 三个 variant。
-- 固定 seeds：42、43、44，共九次独立实验。
-- 每次运行保存命令、环境、Git commit、脚本 SHA256、日志、指标和 manifest。
-- 自动生成 `results.tsv`、`baseline.json` 和 `day1_summary.json`。
-- 使用 `subprocess.run(..., shell=False)`，固定 120 秒 timeout。
+- sklearn 乳腺癌分类 Demo：Logistic Regression、Random Forest、SVM。
+- 固定 seeds 42、43、44，共九次独立 CPU 实验。
+- 保存命令、环境、Git commit、脚本 SHA256、日志、指标和 manifest。
 
 ### Day 2：计划、安全预检与审批
 
-- Pydantic `ExperimentPlan`：目标、假设、受控 argv、variants、seeds、指标、baseline、路径和审批状态。
-- Mock Planner：没有 API Key 也能稳定生成完整的 3 × 3 Demo 计划。
-- OpenAI-compatible Planner：可优化标题与实验假设，但不能修改命令、路径等可执行字段。
-- YAML 计划存储于 `.reproflow/plans/`，SQLite 保存计划版本和审批事件。
-- 预检命令白名单、Python 解释器、脚本与数据路径、参数结构、依赖和产物冲突。
-- 拦截 Shell 操作符、目录越界、非白名单命令、保留参数覆盖和历史结果覆盖。
-- Git dirty 状态会提示警告，但不会掩盖真正的阻断项。
-- 计划只有在预检全部安全后才能由人工批准；失败审批同样会留下审计记录。
+- Pydantic `ExperimentPlan` 和可读的 YAML 计划。
+- 无 Key 可用的 Mock Planner，以及 OpenAI-compatible API Planner。
+- LLM 只允许改写标题和假设，不能控制命令、路径、seed、指标或 timeout。
+- 拦截 Shell 操作符、目录越界、非白名单命令、参数注入和历史结果覆盖。
+- 计划只有通过安全预检并由人工审批后才能执行，审批事件写入 SQLite。
 
-核心思路参考 Andrej Karpathy 的
-[autoresearch](https://github.com/karpathy/autoresearch)：以受控实验、固定评测和结构化结果记录
-构成可审计的研究循环。本项目不是其 nanochat 训练代码的复制。
+### Day 3：Runner、失败处理与恢复
+
+- `asyncio.create_subprocess_exec` 异步 Runner，始终以 argv 执行，不启用 Shell。
+- 每组运行独立保存 YAML 快照、环境、stdout、stderr、metrics、manifest 和 artifacts。
+- 支持 timeout、退出码、取消、部分失败和最多 1 MB 的日志限制。
+- 子进程只继承白名单环境变量，环境快照不保存代理值或 API Key。
+- LangGraph 状态图编排执行、解析、汇总和完成节点。
+- SQLite checkpoint 位于 `.reproflow/checkpoints.sqlite`。
+- `resume` 跳过已成功任务，只重试失败、超时或未完成任务；每次尝试均可审计。
+
+### Day 4：解析、汇总与图表
+
+- JSON、CSV、Regex 三种指标解析器。
+- 缺失、非数值、NaN 或无穷指标不会被当作成功结果。
+- `summary.csv`：逐次实验状态、耗时、指标和来源路径。
+- `aggregate.csv`：按 variant 汇总 mean、sample std、best 和 baseline delta。
+- `failures.csv`：失败、超时、取消和解析错误清单。
+- `plots/metrics.png`：已验证指标的 mean ± std 图表。
+- 所有汇总数字仅来自验证通过的指标文件。
+
+核心实验循环参考 Andrej Karpathy 的
+[autoresearch](https://github.com/karpathy/autoresearch)。ReproFlow 将其扩展为带审批、安全边界、
+checkpoint 和证据溯源的通用科研工作流，不复制 nanochat 训练实现。
 
 ## 环境
 
@@ -42,71 +56,105 @@ uv python install 3.12
 uv sync --extra dev
 ```
 
-## Day 2 快速演示
+## 从目标到实验结果
 
-初始化项目数据库和目录：
+初始化并创建计划：
 
 ```bash
 uv run reproflow init .
-```
 
-使用 Mock Planner 创建计划，不需要任何 API Key：
-
-```bash
 REPROFLOW_RAG_BACKEND=lexical uv run reproflow plan \
   --goal "比较三类模型在三个随机种子下的效果" \
   --planner mock
 ```
 
-命令会返回 `plan_id`。查看、预检和审批该计划：
+命令会返回 `plan_id`。检查并人工审批：
 
 ```bash
-uv run reproflow plans
 uv run reproflow plan-show <plan_id>
 uv run reproflow preflight <plan_id>
 uv run reproflow approve <plan_id> \
   --actor Ethan \
-  --reason "已核对实验矩阵与输出路径"
+  --reason "已核对实验矩阵、命令和输出路径"
 ```
 
-拒绝不合适的草稿：
+执行批准后的九组实验：
 
 ```bash
-uv run reproflow reject <plan_id> --actor Ethan --reason "需要调整实验假设"
+uv run reproflow run <plan_id>
 ```
 
-### OpenAI-compatible API 模式
+查看工作流状态和完整 Agent Trace：
 
 ```bash
-export OPENAI_API_KEY="..."
-export OPENAI_BASE_URL="https://your-provider.example/v1"
-export REPROFLOW_MODEL="your-model"
+uv run reproflow workflow-show <plan_id>
+```
+
+当前实现使用 `plan_id` 作为 `workflow_id`，从而保证同一批准计划不会覆盖或重复创建结果。
+
+## 失败与恢复演示
+
+在一个新的已审批计划上注入一次脚本错误和一次超时：
+
+```bash
+uv run reproflow run <plan_id> \
+  --simulate-failure svm:43 \
+  --simulate-timeout random_forest:44 \
+  --timeout-seconds 1
+```
+
+该命令会生成部分成功的汇总并以非零状态退出。恢复时默认清除演示注入，仅重试失败任务：
+
+```bash
+uv run reproflow resume <plan_id>
+```
+
+模拟进程在完成两组实验后崩溃：
+
+```bash
+uv run reproflow run <plan_id> --crash-after 2
+uv run reproflow resume <plan_id>
+```
+
+`--crash-after` 是一次性故障；checkpoint、SQLite 运行记录和磁盘 manifest 共同保证恢复。
+需要重复注入故障时，可使用 `resume <plan_id> --keep-simulations`。执行期间按
+`Control + C` 会取消当前子进程并记录 `cancelled` 状态。
+
+## 输出结构
+
+```text
+runs/<workflow_id>/
+├── <variant>-seed-<seed>/
+│   ├── artifacts/
+│   ├── plan_snapshot.yaml
+│   ├── environment.json
+│   ├── stdout.log
+│   ├── stderr.log
+│   ├── metrics.json
+│   ├── manifest.json
+│   └── attempts.jsonl       # 仅重试后出现，保留旧 attempt
+├── summary.csv
+├── aggregate.csv
+├── failures.csv
+└── plots/
+    └── metrics.png
+```
+
+## OpenAI-compatible API
+
+项目不会自动加载 `.env`。配置后先将其导入当前终端，再使用 API Planner：
+
+```bash
+set -a
+source .env
+set +a
 
 REPROFLOW_RAG_BACKEND=lexical uv run reproflow plan \
   --goal "比较三类模型在三个随机种子下的效果" \
   --planner api
 ```
 
-API 输出先通过 Pydantic Schema 校验，并且只采纳描述性字段；命令、variants、seeds、路径、
-timeout 和指标定义均由本地安全模板锁定。API 不可用时可随时切回 `--planner mock`。
-
-## 运行 Day 1 实验矩阵
-
-```bash
-uv run python scripts/day1_run_all.py --tag first-demo
-```
-
-为保护历史结果，相同标签不会被覆盖，命令会直接失败并要求使用新标签。单独运行一组实验：
-
-```bash
-uv run python examples/sklearn_demo/experiment.py \
-  --model logistic_regression \
-  --seed 42 \
-  --output /tmp/reproflow-metrics.json
-```
-
-完整矩阵会写入 `runs/<tag>/`，每个模型与 seed 都有独立目录，并生成九组
-`metrics.json`、日志、环境快照、manifest、baseline 和结果表。
+`.env` 已被 Git 忽略。API 输出仍必须通过 Schema，且不会获得可执行字段控制权。
 
 ## 测试与验收
 
@@ -114,26 +162,29 @@ uv run python examples/sklearn_demo/experiment.py \
 uv run ruff check src tests
 REPROFLOW_RAG_BACKEND=lexical uv run pytest tests -q
 
-# Day 2 核心模块覆盖率
-REPROFLOW_RAG_BACKEND=lexical uv run pytest tests/test_day2_planning.py \
-  --cov=reproflow.models \
-  --cov=reproflow.planner \
-  --cov=reproflow.preflight \
-  --cov=reproflow.approval \
+REPROFLOW_RAG_BACKEND=lexical uv run pytest tests \
+  --cov=reproflow.runner \
+  --cov=reproflow.metrics \
+  --cov=reproflow.workflow \
   --cov=reproflow.storage \
   --cov=reproflow.cli \
   --cov-report=term-missing -q
 ```
 
-当前 Day 2 核心模块覆盖率为 84%。API 模式通过模拟 OpenAI-compatible 响应测试其
-Schema 和安全边界；真实服务需要用户自行提供 Key。
+当前共 26 项测试通过；Day 3/4 相关核心模块组合覆盖率为 86%。测试覆盖正常执行、
+审批门、crash、timeout、取消、缺指标、部分成功、幂等恢复、三种解析器、CSV 和图表。
+
+真实 sklearn 验收结果：
+
+- 正常工作流：9/9 成功。
+- 故障工作流：先得到部分成功汇总，`resume` 后恢复到 9/9。
+- 已成功任务保持 attempt 1，只有失败、超时或未完成任务增加 attempt。
 
 ## 后续路线图
 
-1. 异步 Runner、失败处理、幂等恢复和 LangGraph SQLite checkpoint。
-2. JSON/CSV/Regex 解析、汇总图表和 Markdown 报告。
-3. 工作记忆、历史实验记忆、Chroma RAG 和分阶段 ContextPack。
-4. Evidence Registry、Streamlit UI、Agent evals 和端到端测试。
+1. Day 5：实验记忆、lessons、Chroma RAG 和分阶段 ContextPack。
+2. Day 6：Markdown 报告、Evidence Registry、论文证据同步和 Streamlit UI。
+3. Day 7：20 条 Agent eval、中英文演示材料和全流程复现。
 
 两分钟演示讲稿见 [`scripts/demo_2min.md`](scripts/demo_2min.md)。
 

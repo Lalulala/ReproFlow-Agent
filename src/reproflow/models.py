@@ -26,6 +26,7 @@ class RunStatus(StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     TIMED_OUT = "timed_out"
+    CANCELLED = "cancelled"
     SKIPPED = "skipped"
 
 
@@ -207,10 +208,13 @@ class WorkflowState(TypedDict, total=False):
     run_records: list[dict[str, Any]]
     summary_path: str
     aggregate_path: str
+    failures_path: str
+    plot_path: str
     report_path: str
     proposed_claims: list[dict[str, Any]]
     errors: list[str]
     trace: list[dict[str, Any]]
+    faults: dict[str, Any]
 
 
 def project_path(root: str | Path, relative: str) -> Path:

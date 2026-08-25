@@ -1999,6 +1999,9 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx", extra = ["socks"] },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-sqlite" },
+    { name = "matplotlib" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -2010,9 +2013,6 @@ dependencies = [
 agent = [
     { name = "chromadb" },
     { name = "jinja2" },
-    { name = "langgraph" },
-    { name = "langgraph-checkpoint-sqlite" },
-    { name = "matplotlib" },
     { name = "pandas" },
     { name = "pypdf" },
     { name = "streamlit" },
@@ -2028,9 +2028,9 @@ requires-dist = [
     { name = "chromadb", marker = "extra == 'agent'", specifier = ">=1.0,<2" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28,<1" },
     { name = "jinja2", marker = "extra == 'agent'", specifier = ">=3.1,<4" },
-    { name = "langgraph", marker = "extra == 'agent'", specifier = ">=0.6,<2" },
-    { name = "langgraph-checkpoint-sqlite", marker = "extra == 'agent'", specifier = ">=2.0,<4" },
-    { name = "matplotlib", marker = "extra == 'agent'", specifier = ">=3.9,<4" },
+    { name = "langgraph", specifier = ">=1.2,<2" },
+    { name = "langgraph-checkpoint-sqlite", specifier = ">=3.1,<4" },
+    { name = "matplotlib", specifier = ">=3.11,<4" },
     { name = "openai", specifier = ">=1.50,<3" },
     { name = "pandas", marker = "extra == 'agent'", specifier = ">=2.2,<4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
