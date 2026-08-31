@@ -141,9 +141,7 @@ def write_summary_csv(
                     "status": record.status.value,
                     "exit_code": record.exit_code,
                     "duration_seconds": _format_number(record.duration_seconds),
-                    **{
-                        spec.name: _format_number(record.metrics.get(spec.name)) for spec in specs
-                    },
+                    **{spec.name: _format_number(record.metrics.get(spec.name)) for spec in specs},
                     "metrics_path": str(run_dir / "metrics.json"),
                     "manifest_path": str(run_dir / "manifest.json"),
                     "error": record.error or "",
@@ -185,9 +183,7 @@ def aggregate_rows(
             mean = statistics.fmean(values) if values else None
             std = statistics.stdev(values) if len(values) > 1 else (0.0 if values else None)
             best = (
-                (max(values) if spec.direction == "maximize" else min(values))
-                if values
-                else None
+                (max(values) if spec.direction == "maximize" else min(values)) if values else None
             )
             baseline_mean = baseline_means.get(spec.name)
             if mean is None or baseline_mean is None:

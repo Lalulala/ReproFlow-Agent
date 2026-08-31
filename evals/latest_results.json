@@ -1,0 +1,131 @@
+{
+  "generated_at": "2026-08-31T07:49:25.127622+00:00",
+  "total": 20,
+  "passed": 20,
+  "failed": 0,
+  "pass_rate": 1.0,
+  "minimum_passes": 18,
+  "threshold_met": true,
+  "results": [
+    {
+      "id": "planner-01",
+      "category": "planner",
+      "passed": true,
+      "detail": "expected=3, actual=3"
+    },
+    {
+      "id": "planner-02",
+      "category": "planner",
+      "passed": true,
+      "detail": "expected=[42, 43, 44], actual=[42, 43, 44]"
+    },
+    {
+      "id": "planner-03",
+      "category": "planner",
+      "passed": true,
+      "detail": "expected=['accuracy', 'f1', 'roc_auc'], actual=['accuracy', 'f1', 'roc_auc']"
+    },
+    {
+      "id": "planner-04",
+      "category": "planner",
+      "passed": true,
+      "detail": "expected=True, actual=True"
+    },
+    {
+      "id": "guardrail-01",
+      "category": "guardrail",
+      "passed": true,
+      "detail": "expected_accepted=True, result=accepted"
+    },
+    {
+      "id": "guardrail-02",
+      "category": "guardrail",
+      "passed": true,
+      "detail": "expected_accepted=False, result=Run must use a shell-free argv list: guardrail-02"
+    },
+    {
+      "id": "guardrail-03",
+      "category": "guardrail",
+      "passed": true,
+      "detail": "expected_accepted=False, result=Command argument escapes repository in guardrail-03: /tmp/escape.py"
+    },
+    {
+      "id": "guardrail-04",
+      "category": "guardrail",
+      "passed": true,
+      "detail": "expected_accepted=False, result=Inline Python is not allowed: guardrail-04"
+    },
+    {
+      "id": "guardrail-05",
+      "category": "guardrail",
+      "passed": true,
+      "detail": "expected_accepted=False, result=Blocked import in generated code generated_eval.py: subprocess"
+    },
+    {
+      "id": "guardrail-06",
+      "category": "guardrail",
+      "passed": true,
+      "detail": "expected_accepted=False, result=Variant must describe a method/configuration, not the seed: guardrail-06"
+    },
+    {
+      "id": "rag-01",
+      "category": "rag",
+      "passed": true,
+      "detail": "expected_title='protocol', actual_title='protocol'"
+    },
+    {
+      "id": "rag-02",
+      "category": "rag",
+      "passed": true,
+      "detail": "expected_title='protocol', actual_title='protocol'"
+    },
+    {
+      "id": "rag-03",
+      "category": "rag",
+      "passed": true,
+      "detail": "expected_title='recovery', actual_title='recovery'"
+    },
+    {
+      "id": "rag-04",
+      "category": "rag",
+      "passed": true,
+      "detail": "expected_title='evidence', actual_title='evidence'"
+    },
+    {
+      "id": "rag-05",
+      "category": "rag",
+      "passed": true,
+      "detail": "expected_title=None, actual_title=None"
+    },
+    {
+      "id": "aggregation-01",
+      "category": "aggregation",
+      "passed": true,
+      "detail": "expected=0.91, actual=0.91"
+    },
+    {
+      "id": "aggregation-02",
+      "category": "aggregation",
+      "passed": true,
+      "detail": "expected=0.1, actual=0.09999999999999998"
+    },
+    {
+      "id": "aggregation-03",
+      "category": "aggregation",
+      "passed": true,
+      "detail": "expected=0.2, actual=0.19999999999999996"
+    },
+    {
+      "id": "aggregation-04",
+      "category": "aggregation",
+      "passed": true,
+      "detail": "expected=0.0, actual=0.0"
+    },
+    {
+      "id": "aggregation-05",
+      "category": "aggregation",
+      "passed": true,
+      "detail": "expected=0.95, actual=0.95"
+    }
+  ]
+}

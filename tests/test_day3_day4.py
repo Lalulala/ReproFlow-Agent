@@ -22,7 +22,7 @@ from reproflow.runner import SimulatedCrashError, load_manifest, run_one
 from reproflow.storage import Store
 from reproflow.workflow import resume_workflow, start_workflow
 
-FAST_EXPERIMENT = '''
+FAST_EXPERIMENT = """
 import argparse
 import json
 import time
@@ -47,7 +47,7 @@ output = Path(args.output)
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(payload), encoding="utf-8")
 print(f"accuracy={payload['accuracy']}")
-'''
+"""
 
 
 @pytest.fixture
@@ -74,8 +74,7 @@ def approved_plan(
         command=[sys.executable, "examples/experiment.py"],
         variants=[VariantSpec(name=name, args=["--model", name]) for name in variants],
         seeds=list(seeds),
-        metrics=metrics
-        or [MetricSpec(name=name) for name in ("accuracy", "f1", "roc_auc")],
+        metrics=metrics or [MetricSpec(name=name) for name in ("accuracy", "f1", "roc_auc")],
         baseline=variants[0],
         timeout_seconds=5,
         script_path="examples/experiment.py",
@@ -172,9 +171,7 @@ def test_csv_and_regex_metric_parsers(project: Path) -> None:
         MetricSpec(name="accuracy", parser="csv"),
     ]
     assert parse_csv_metrics(csv_path, csv_specs) == {"loss": 0.3, "accuracy": 0.9}
-    regex_specs = [
-        MetricSpec(name="f1", parser="regex", pattern=r"F1=(?P<value>\d+\.\d+)")
-    ]
+    regex_specs = [MetricSpec(name="f1", parser="regex", pattern=r"F1=(?P<value>\d+\.\d+)")]
     assert parse_regex_metrics("epoch done F1=0.88", regex_specs) == {"f1": 0.88}
 
 

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --extra dev --frozen
+      - name: Lint
+        run: uv run ruff check src tests scripts
+      - name: Test with coverage gate
+        env:
+          REPROFLOW_RAG_BACKEND: lexical
+        run: >-
+          uv run pytest tests --cov=reproflow --cov-report=term-missing
+          --cov-fail-under=80 -q
+      - name: Run 20-case Agent eval
+        env:
+          REPROFLOW_RAG_BACKEND: lexical
+        run: uv run reproflow eval --project . --minimum-passes 18
+      - name: Build wheel and source distribution
+        run: uv build

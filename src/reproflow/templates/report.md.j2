@@ -1,52 +1,52 @@
-# ReproFlow Experiment Report
+# ReproFlow 实验报告
 
-## Experiment
+## 实验概要
 
-- Workflow: `{{ workflow_id }}`
-- Plan: `{{ plan.plan_id }}`
-- Goal: {{ plan.goal }}
-- Hypothesis: {{ plan.hypothesis }}
-- Baseline: `{{ plan.baseline }}`
-- Seeds: {{ plan.seeds | join(", ") }}
+- 工作流：`{{ workflow_id }}`
+- 实验计划：`{{ plan.plan_id }}`
+- 实验目标：{{ plan.goal }}
+- 实验假设：{{ plan.hypothesis }}
+- 基线模型：`{{ plan.baseline }}`
+- 随机种子：{{ plan.seeds | join(", ") }}
 
-## Reproducibility
+## 可复现信息
 
-- Git commit: `{{ git_commit }}`
-- Configuration SHA256: `{{ config_hash }}`
-- Script SHA256: `{{ script_hash }}`
-- Per-run results: [`{{ summary_path }}`]({{ summary_path }})
-- Aggregate results: [`{{ aggregate_path }}`]({{ aggregate_path }})
-- Failure list: [`{{ failures_path }}`]({{ failures_path }})
-- Metric plot: [`{{ plot_path }}`]({{ plot_path }})
+- Git commit：`{{ git_commit }}`
+- 配置 SHA256：`{{ config_hash }}`
+- 脚本 SHA256：`{{ script_hash }}`
+- 单次运行结果：[`{{ summary_path }}`]({{ summary_path }})
+- 汇总结果：[`{{ aggregate_path }}`]({{ aggregate_path }})
+- 失败清单：[`{{ failures_path }}`]({{ failures_path }})
+- 指标图表：[`{{ plot_path }}`]({{ plot_path }})
 
-## Verified aggregate results
+## 已验证的汇总结果
 
 {% if aggregate_rows %}| {{ aggregate_headers | join(" | ") }} |
 |{% for header in aggregate_headers %} --- |{% endfor %}
 {% for row in aggregate_rows %}|{% for header in aggregate_headers %} {{ row[header] }} |{% endfor %}
-{% endfor %}{% else %}No verified aggregate results are available.
+{% endfor %}{% else %}暂无可用的已验证汇总结果。
 {% endif %}
 
-## Run traceability
+## 运行溯源
 
-| Run | Variant | Seed | Status | Metrics source | Manifest source |
+| 运行 ID | Variant | 随机种子 | 状态 | 指标来源 | Manifest 来源 |
 | --- | --- | ---: | --- | --- | --- |
 {% for row in run_rows %}| `{{ row.run_id }}` | {{ row.variant }} | {{ row.seed }} | {{ row.status }} | `{{ row.metrics_path }}` | `{{ row.manifest_path }}` |
 {% endfor %}
 
-## Interpretation
+## 结果解读
 
 {{ narrative.interpretation }}
 
-## Limitations
+## 局限性
 
 {{ narrative.limitations }}
 
-## Next steps
+## 后续建议
 
 {{ narrative.next_steps }}
 
-## Context policy
+## 上下文与数值安全策略
 
-The reporter received only verified run and aggregate artifacts through a stage-specific
-`ContextPack`. It did not receive executable tools or unverified numerical claims.
+报告 Agent 仅通过阶段专用的 `ContextPack` 获取已验证的单次运行结果和汇总产物。
+它不会获得可执行工具，也不会将未验证的数值主张写入报告。

@@ -8,18 +8,32 @@ from typing import Annotated
 
 import typer
 import yaml
+from openai import OpenAIError
 
 from .approval import UnsafePlanError, approve_plan
 from .context import build_context_pack
+from .evaluation import run_agent_evals
 from .evidence import (
     approve_claim,
     audit_claim_staleness,
     mark_claim_stale,
     sync_evidence,
 )
+from .human_views import render_evidence_markdown, render_plan_markdown
 from .planner import get_planner
 from .preflight import run_preflight
 from .rag import ChromaKnowledgeBase, LexicalKnowledgeBase, get_knowledge_base
+from .repo_agent import (
+    RepoPlanStore,
+    approve_repo_plan,
+    create_repo_plan,
+    create_repo_repair_plan,
+    inspect_repository,
+    render_dependency_report_markdown,
+    render_manifest_markdown,
+    render_repo_plan_markdown,
+    run_repo_plan,
+)
 from .reporting import generate_report
 from .runner import SimulatedCrashError
 from .storage import Store
@@ -28,8 +42,10 @@ from .workflow import resume_workflow, start_workflow
 app = typer.Typer(no_args_is_help=True, help="ReproFlow reproducible experiment workflow.")
 evidence_app = typer.Typer(no_args_is_help=True, help="Review and sync evidence claims.")
 knowledge_app = typer.Typer(no_args_is_help=True, help="Index and search local research sources.")
+repo_app = typer.Typer(no_args_is_help=True, help="Understand and execute an existing repository.")
 app.add_typer(evidence_app, name="evidence")
 app.add_typer(knowledge_app, name="knowledge")
+app.add_typer(repo_app, name="repo")
 
 
 def _root(project: Path) -> Path:
@@ -62,7 +78,145 @@ def create_plan(
     store.add_plan_event(plan.plan_id, "created", planner, "Generated from natural-language goal")
     typer.echo(f"Plan: {plan.plan_id}")
     typer.echo(f"YAML: {store.plan_path(plan.plan_id)}")
-    typer.echo(yaml.safe_dump(plan.model_dump(mode="json"), sort_keys=False, allow_unicode=True))
+    typer.echo(f"Readable plan: {store.plan_markdown_path(plan.plan_id)}")
+    typer.echo(render_plan_markdown(plan))
+
+
+@repo_app.command("inspect")
+def inspect_repo_command(
+    repository: Annotated[Path, typer.Argument()],
+    goal: Annotated[str, typer.Option("--goal")] = "",
+) -> None:
+    """Inspect a Git repository without executing or changing it."""
+    try:
+        manifest = inspect_repository(repository, goal)
+    except ValueError as error:
+        typer.echo(f"Repository inspection failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(render_manifest_markdown(manifest))
+
+
+@repo_app.command("plan")
+def create_repo_plan_command(
+    repository: Annotated[Path, typer.Argument()],
+    goal: Annotated[str, typer.Option("--goal")],
+    agent: Annotated[str, typer.Option("--agent", help="mock or api")] = "mock",
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Let the Agent inspect a repository and propose code plus execution decisions."""
+    root = _root(project)
+    try:
+        plan = create_repo_plan(root, repository, goal, agent=agent)
+    except (KeyError, OpenAIError, RuntimeError, ValueError) as error:
+        typer.echo(f"Repository planning failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    store = RepoPlanStore(root)
+    typer.echo(f"Repository plan: {plan.repo_plan_id}")
+    typer.echo(f"Review: {store.markdown_path(plan.repo_plan_id)}")
+    typer.echo(render_repo_plan_markdown(plan))
+
+
+@repo_app.command("list")
+def list_repo_plans_command(
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    for plan in RepoPlanStore(_root(project)).list():
+        typer.echo(
+            f"{plan.repo_plan_id}\t{plan.status.value}\t"
+            f"{Path(plan.repository_path).name}\t{plan.title}"
+        )
+
+
+@repo_app.command("show")
+def show_repo_plan_command(
+    repo_plan_id: Annotated[str, typer.Argument()],
+    raw: Annotated[bool, typer.Option("--raw")] = False,
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    root = _root(project)
+    try:
+        plan = RepoPlanStore(root).get(repo_plan_id)
+    except KeyError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    typer.echo(plan.model_dump_json(indent=2) if raw else render_repo_plan_markdown(plan))
+
+
+@repo_app.command("dependencies")
+def show_repo_dependencies_command(
+    repo_plan_id: Annotated[str, typer.Argument()],
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Show dependency compatibility and approved isolated-environment commands."""
+    try:
+        plan = RepoPlanStore(_root(project)).get(repo_plan_id)
+    except KeyError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    typer.echo(render_dependency_report_markdown(plan))
+
+
+@repo_app.command("repair")
+def create_repo_repair_command(
+    repo_plan_id: Annotated[str, typer.Argument()],
+    feedback: Annotated[str, typer.Option("--feedback")] = "",
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Diagnose a failed repository workflow and create a new draft repair plan."""
+    root = _root(project)
+    try:
+        plan = create_repo_repair_plan(root, repo_plan_id, feedback=feedback)
+    except (KeyError, OpenAIError, RuntimeError, ValueError) as error:
+        typer.echo(f"Repository repair planning failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(f"Repair plan: {plan.repo_plan_id}")
+    typer.echo(f"Parent plan: {plan.parent_plan_id}")
+    typer.echo(f"Review: {RepoPlanStore(root).markdown_path(plan.repo_plan_id)}")
+    typer.echo(render_repo_plan_markdown(plan))
+
+
+@repo_app.command("approve")
+def approve_repo_plan_command(
+    repo_plan_id: Annotated[str, typer.Argument()],
+    actor: Annotated[str, typer.Option("--actor")] = "human",
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Approve the displayed code diff and every planned command together."""
+    try:
+        plan = approve_repo_plan(_root(project), repo_plan_id, actor)
+    except (KeyError, ValueError) as error:
+        typer.echo(f"Repository plan approval blocked: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(f"Approved repository plan: {plan.repo_plan_id} by {actor}")
+
+
+def _run_repo(repo_plan_id: str, project: Path, *, resume: bool) -> None:
+    try:
+        state = run_repo_plan(_root(project), repo_plan_id, resume=resume)
+    except (KeyError, OSError, ValueError) as error:
+        typer.echo(f"Repository workflow blocked: {error}", err=True)
+        raise typer.Exit(1) from error
+    _print_workflow_result(state)
+    if state["stage"] != "completed":
+        raise typer.Exit(1)
+
+
+@repo_app.command("run")
+def run_repo_plan_command(
+    repo_plan_id: Annotated[str, typer.Argument()],
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Apply approved code changes and run the approved repository workflow."""
+    _run_repo(repo_plan_id, project, resume=False)
+
+
+@repo_app.command("resume")
+def resume_repo_plan_command(
+    repo_plan_id: Annotated[str, typer.Argument()],
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Retry failed repository runs without repeating successful runs."""
+    _run_repo(repo_plan_id, project, resume=True)
 
 
 @app.command("plans")
@@ -76,13 +230,22 @@ def list_plans(project: Annotated[Path, typer.Option("--project")] = Path(".")) 
 @app.command("plan-show")
 def show_plan(
     plan_id: Annotated[str, typer.Argument()],
+    raw: Annotated[bool, typer.Option("--raw", help="Show the machine-readable YAML.")] = False,
     project: Annotated[Path, typer.Option("--project")] = Path("."),
 ) -> None:
     store = Store(_root(project))
     plan = store.get_plan(plan_id)
-    typer.echo(yaml.safe_dump(plan.model_dump(mode="json"), sort_keys=False, allow_unicode=True))
-    typer.echo("Events:")
-    typer.echo(json.dumps(store.list_plan_events(plan_id), ensure_ascii=False, indent=2))
+    if raw:
+        typer.echo(
+            yaml.safe_dump(plan.model_dump(mode="json"), sort_keys=False, allow_unicode=True)
+        )
+        typer.echo("Events:")
+        typer.echo(json.dumps(store.list_plan_events(plan_id), ensure_ascii=False, indent=2))
+        return
+    readable = render_plan_markdown(plan)
+    store.plan_markdown_path(plan_id).write_text(readable, encoding="utf-8")
+    typer.echo(readable)
+    typer.echo(f"\n书面计划已保存至：{store.plan_markdown_path(plan_id)}")
 
 
 @app.command("preflight")
@@ -250,9 +413,7 @@ def show_context(
     except KeyError as error:
         typer.echo(f"Unknown context stage: {stage}", err=True)
         raise typer.Exit(1) from error
-    typer.echo(
-        yaml.safe_dump(context.model_dump(mode="json"), sort_keys=False, allow_unicode=True)
-    )
+    typer.echo(yaml.safe_dump(context.model_dump(mode="json"), sort_keys=False, allow_unicode=True))
 
 
 @app.command("memories")
@@ -261,9 +422,7 @@ def list_memories(
 ) -> None:
     """List experiment, failure, and lesson memories."""
     for memory in Store(_root(project)).list_memories():
-        typer.echo(
-            f"{memory.memory_id}\t{memory.kind}\t{memory.workflow_id or '-'}\t{memory.text}"
-        )
+        typer.echo(f"{memory.memory_id}\t{memory.kind}\t{memory.workflow_id or '-'}\t{memory.text}")
 
 
 @app.command("report")
@@ -334,14 +493,14 @@ def list_evidence(
     project: Annotated[Path, typer.Option("--project")] = Path("."),
 ) -> None:
     for claim in Store(_root(project)).list_claims():
-        typer.echo(
-            f"{claim.claim_id}\t{claim.status.value}\t{claim.proposed_status}\t{claim.claim}"
-        )
+        typer.echo(render_evidence_markdown(claim, include_artifacts=False))
+        typer.echo("\n" + "-" * 72 + "\n")
 
 
 @evidence_app.command("show")
 def show_evidence(
     claim_id: Annotated[str, typer.Argument()],
+    raw: Annotated[bool, typer.Option("--raw", help="Show the machine-readable YAML.")] = False,
     project: Annotated[Path, typer.Option("--project")] = Path("."),
 ) -> None:
     try:
@@ -349,7 +508,12 @@ def show_evidence(
     except KeyError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
-    typer.echo(yaml.safe_dump(claim.model_dump(mode="json"), sort_keys=False, allow_unicode=True))
+    if raw:
+        typer.echo(
+            yaml.safe_dump(claim.model_dump(mode="json"), sort_keys=False, allow_unicode=True)
+        )
+        return
+    typer.echo(render_evidence_markdown(claim))
 
 
 @evidence_app.command("approve")
@@ -407,11 +571,40 @@ def sync_evidence_command(
     typer.echo(f"Generated results: {results}")
 
 
+@app.command("eval")
+def run_evals_command(
+    cases: Annotated[Path, typer.Option("--cases")] = Path("evals/agent_cases.jsonl"),
+    output: Annotated[Path, typer.Option("--output")] = Path("evals/latest_results.json"),
+    minimum_passes: Annotated[int, typer.Option("--minimum-passes")] = 18,
+    project: Annotated[Path, typer.Option("--project")] = Path("."),
+) -> None:
+    """Run the deterministic 20-case Agent acceptance suite."""
+    root = _root(project)
+    cases_path = cases if cases.is_absolute() else root / cases
+    output_path = output if output.is_absolute() else root / output
+    try:
+        report = run_agent_evals(
+            cases_path,
+            output_path=output_path,
+            minimum_passes=minimum_passes,
+        )
+    except (OSError, ValueError) as error:
+        typer.echo(f"Agent eval failed to start: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(
+        f"Agent evals: {report['passed']}/{report['total']} passed "
+        f"({report['pass_rate']:.0%})"
+    )
+    typer.echo(f"Report: {output_path}")
+    if not report["threshold_met"]:
+        raise typer.Exit(1)
+
+
 @app.command("ui")
 def launch_ui(
     project: Annotated[Path, typer.Option("--project")] = Path("."),
 ) -> None:
-    """Launch the four-page Streamlit demonstration UI."""
+    """Launch the conversational Streamlit interface."""
     root = _root(project)
     ui_path = Path(__file__).resolve().parent / "ui.py"
     completed = subprocess.run(

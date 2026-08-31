@@ -1,11 +1,19 @@
 [project]
 name = "reproflow-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "A reproducible agent workflow for machine-learning experiments and paper evidence."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
-authors = [{ name = "ReproFlow contributors" }]
+authors = [{ name = "Ethan" }]
+keywords = ["agents", "machine-learning", "reproducibility", "langgraph", "research"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
 dependencies = [
   "chromadb>=1.5,<2",
   "httpx[socks]>=0.28,<1",
@@ -14,6 +22,7 @@ dependencies = [
   "langgraph-checkpoint-sqlite>=3.1,<4",
   "matplotlib>=3.11,<4",
   "openai>=1.50,<3",
+  "packaging>=24,<27",
   "pydantic>=2.9,<3",
   "pypdf>=6,<7",
   "pyyaml>=6.0,<7",
@@ -21,6 +30,11 @@ dependencies = [
   "streamlit>=1.62,<2",
   "typer>=0.15,<1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Lalulala/ReproFlow-Agent"
+Repository = "https://github.com/Lalulala/ReproFlow-Agent"
+Issues = "https://github.com/Lalulala/ReproFlow-Agent/issues"
 
 [project.optional-dependencies]
 dev = [

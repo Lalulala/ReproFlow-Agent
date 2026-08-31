@@ -223,9 +223,7 @@ async def run_one(
             stdout, stdout_truncated = await stdout_task
             stderr, stderr_truncated = await stderr_task
             record.exit_code = process.returncode
-            record.status = (
-                RunStatus.SUCCEEDED if process.returncode == 0 else RunStatus.FAILED
-            )
+            record.status = RunStatus.SUCCEEDED if process.returncode == 0 else RunStatus.FAILED
             if record.status == RunStatus.FAILED:
                 record.error = f"Process exited with code {process.returncode}"
         except TimeoutError:

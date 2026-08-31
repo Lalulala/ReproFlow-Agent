@@ -1,12 +1,16 @@
-# ReproFlow Day 6 两分钟演示讲稿
+# ReproFlow Agent 两分钟演示讲稿
 
-1. 输入实验目标，展示 Planner ContextPack 中的本地协议、历史 report 和 lesson。
-2. 打开生成的 YAML，指出 LLM 不能控制命令、路径、seed 与指标。
-3. 运行 `preflight` 并由 Ethan 审批计划。
-4. 执行 `reproflow run <plan_id>`，展示 LangGraph Trace 和九个独立运行目录。
-5. 打开 `summary.csv`、`aggregate.csv` 与图表，指出 mean、std、best 和 baseline delta。
-6. 打开 `report.md`，说明表格数字直接来自验证文件，Narrator 只负责无数字解释。
-7. 打开 Knowledge 页面，检索“最佳 ROC-AUC 模型”，展示路径、章节、分数和内容哈希。
-8. 打开 Evidence 页面，选择一个 Claim，查看 runs、commit、配置哈希和 artifacts。
-9. 演示未审批时同步被阻断；由 Ethan 审批后同步两个 `paper/` 证据文件。
-10. 切换到故障 Trace，说明 resume 只重试失败任务；以 Day 7 eval 和发布材料收尾。
+| 时间 | 画面与讲解 |
+| --- | --- |
+| 0:00–0:15 | 打开“对话实验”，输入：找到主实验入口，复现 baseline，并用三个固定种子比较新方法。 |
+| 0:15–0:35 | 展示 Agent 的仓库阅读范围、Dependency Preflight、代码 Diff、运行矩阵和指标规则；强调此时零写入、零执行。 |
+| 0:35–0:50 | 由 Ethan 审批计划；说明执行使用 `shell=False`、命令白名单、路径限制和项目隔离 uv 环境。 |
+| 0:50–1:05 | 执行实验，展示独立运行目录、日志、metrics、manifest 和 LangGraph checkpoint。 |
+| 1:05–1:20 | 打开“实验结果”，按实验选择，展示 summary、aggregate、mean/std、失败信息和中文报告。 |
+| 1:20–1:35 | 打开“证据库”，展示 Claim 对应的 run、metric、commit、配置哈希和 artifact；未审批同步会被阻断。 |
+| 1:35–1:47 | 打开“知识与记忆”，按实验检索 report、lesson 和失败模式，展示来源与内容哈希。 |
+| 1:47–1:55 | 切换到失败实验，展示 Repair Agent 生成的新 Diff 和第二道审批，而不是静默改代码。 |
+| 1:55–2:00 | 展示 CI、85% 覆盖率、20/20 Agent eval 和三仓库兼容性矩阵。 |
+
+演示使用 Mock 模式即可完整跑通，不需要 API Key；Repair Agent 片段可使用已保存且已脱敏的
+`repo_plans/repo-plan-140393eb5f.md`，不要在录制时批准或执行该历史草稿。

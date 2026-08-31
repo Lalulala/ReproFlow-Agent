@@ -51,9 +51,9 @@ def run_preflight(plan: ExperimentPlan, project_root: str | Path) -> PreflightRe
 
     executable = Path(plan.command[0]).resolve()
     executable_name_allowed = executable.name in {"python", "python3", "python3.12"}
-    executable_exists = executable == Path(sys.executable).resolve() or shutil.which(
-        plan.command[0]
-    ) is not None
+    executable_exists = (
+        executable == Path(sys.executable).resolve() or shutil.which(plan.command[0]) is not None
+    )
     executable_allowed = executable_name_allowed and executable_exists
     checks.append(
         PreflightCheck(

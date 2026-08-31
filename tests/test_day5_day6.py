@@ -28,10 +28,10 @@ from reproflow.planner import MockPlanner
 from reproflow.rag import LexicalKnowledgeBase
 from reproflow.reporting import APINarrator
 from reproflow.storage import Store
-from reproflow.ui import PAGES, project_root
+from reproflow.ui import PAGES, _chat_result_message, _experiment_catalog, project_root
 from reproflow.workflow import start_workflow
 
-FAST_EXPERIMENT = '''
+FAST_EXPERIMENT = """
 import argparse
 import json
 from pathlib import Path
@@ -49,7 +49,7 @@ output = Path(args.output)
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(payload), encoding="utf-8")
 print("METRICS_JSON=" + json.dumps(payload))
-'''
+"""
 
 
 @pytest.fixture
@@ -219,15 +219,45 @@ def test_lexical_rag_has_sources_and_returns_empty_without_evidence(project: Pat
     assert knowledge.search("zzzz-no-local-evidence-zzzz") == []
 
 
-def test_streamlit_exposes_four_pages(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_streamlit_exposes_chat_and_workflow_pages(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(sys, "argv", ["ui.py", str(project)])
-    assert PAGES == ("Workflow", "Runs", "Evidence", "Knowledge")
+    assert PAGES == ("对话实验", "实验结果", "证据库", "知识与记忆")
     assert project_root() == project.resolve()
+    message = _chat_result_message(
+        {
+            "stage": "completed",
+            "run_records": [{"status": "succeeded"}, {"status": "failed"}],
+            "aggregate_path": "runs/demo/aggregate.csv",
+            "report_path": "runs/demo/report.md",
+        }
+    )
+    assert "1/2" in message
+    assert "runs/demo/report.md" in message
 
 
-def test_day5_day6_cli_surface(
+def test_results_evidence_and_memory_are_grouped_by_experiment(
     project: Path, completed: tuple[ExperimentPlan, dict]
 ) -> None:
+    plan, _ = completed
+    store = Store(project)
+    catalog = _experiment_catalog(project, store)
+
+    assert len(catalog) == 1
+    assert catalog[0]["workflow_id"] == plan.plan_id
+    assert catalog[0]["title"] == plan.title
+    assert catalog[0]["run_count"] == 2
+    assert catalog[0]["success_count"] == 2
+    assert catalog[0]["claim_count"] == 1
+    assert catalog[0]["memory_count"] == 2
+    assert store.list_claims(workflow_id=plan.plan_id)
+    assert store.list_memories(workflow_id=plan.plan_id)
+    assert store.list_claims(workflow_id="missing-experiment") == []
+    assert store.list_memories(workflow_id="missing-experiment") == []
+
+
+def test_day5_day6_cli_surface(project: Path, completed: tuple[ExperimentPlan, dict]) -> None:
     plan, state = completed
     runner = CliRunner()
     common = ["--project", str(project)]
@@ -270,7 +300,11 @@ def test_day5_day6_cli_surface(
     assert claim.claim_id in listed.output
     shown = runner.invoke(app, ["evidence", "show", claim.claim_id, *common])
     assert shown.exit_code == 0
-    assert "proposed_status:" in shown.output
+    assert "一句话结论" in shown.output
+    assert "这个结论是怎么得到的" in shown.output
+    raw_claim = runner.invoke(app, ["evidence", "show", claim.claim_id, "--raw", *common])
+    assert raw_claim.exit_code == 0
+    assert "proposed_status:" in raw_claim.output
     blocked_sync = runner.invoke(app, ["evidence", "sync", *common])
     assert blocked_sync.exit_code == 1
     approved = runner.invoke(

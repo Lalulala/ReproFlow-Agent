@@ -38,6 +38,14 @@ class ClaimStatus(StrEnum):
     STALE = "stale"
 
 
+class RepoPlanStatus(StrEnum):
+    DRAFT = "draft"
+    APPROVED = "approved"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    PARTIAL_FAILURE = "partial_failure"
+
+
 class MetricSpec(BaseModel):
     name: str
     direction: Literal["maximize", "minimize"] = "maximize"
@@ -195,6 +203,82 @@ class EvidenceClaim(BaseModel):
     reviewed_at: datetime | None = None
     invalidated_at: datetime | None = None
     stale_reason: str | None = None
+
+
+class RepoMetricSpec(BaseModel):
+    name: str
+    direction: Literal["maximize", "minimize"] = "maximize"
+    parser: Literal["json", "regex"] = "json"
+    key: str | None = None
+    pattern: str | None = None
+
+
+class RepoRunSpec(BaseModel):
+    run_id: str
+    purpose: str
+    variant: str
+    seed: int
+    argv: list[str]
+    cwd: str = "."
+    timeout_seconds: int = Field(default=600, ge=1, le=86400)
+    metrics_file: str | None = None
+
+
+class RepoCodeChange(BaseModel):
+    path: str
+    content: str
+    reason: str
+    before_sha256: str | None = None
+    diff: str = ""
+
+
+class DependencyItem(BaseModel):
+    requirement: str
+    distribution: str
+    installed_version: str | None = None
+    status: Literal["satisfied", "missing", "conflict", "unsafe"]
+    detail: str
+
+
+class DependencyReport(BaseModel):
+    manifest_files: list[str] = Field(default_factory=list)
+    requested_requirements: list[str] = Field(default_factory=list)
+    resolved_requirements: list[str] = Field(default_factory=list)
+    checks: list[DependencyItem] = Field(default_factory=list)
+    blocked_entries: list[str] = Field(default_factory=list)
+    needs_isolation: bool = False
+
+
+class RepoEnvironmentSpec(BaseModel):
+    mode: Literal["current", "isolated"] = "current"
+    python_version: str
+    environment_id: str
+    requirements: list[str] = Field(default_factory=list)
+    install_commands: list[list[str]] = Field(default_factory=list)
+    rationale: str
+
+
+class RepoExecutionPlan(BaseModel):
+    repo_plan_id: str = Field(default_factory=lambda: f"repo-plan-{uuid4().hex[:10]}")
+    repository_path: str
+    repository_commit: str
+    goal: str
+    title: str
+    rationale: str
+    inspected_files: list[str] = Field(default_factory=list)
+    source_hashes: dict[str, str] = Field(default_factory=dict)
+    code_changes: list[RepoCodeChange] = Field(default_factory=list, max_length=8)
+    runs: list[RepoRunSpec] = Field(min_length=1, max_length=50)
+    metrics: list[RepoMetricSpec] = Field(default_factory=list)
+    baseline: str | None = None
+    dependency_report: DependencyReport | None = None
+    environment: RepoEnvironmentSpec | None = None
+    parent_plan_id: str | None = None
+    repair_attempt: int = Field(default=0, ge=0, le=3)
+    status: RepoPlanStatus = RepoPlanStatus.DRAFT
+    created_at: datetime = Field(default_factory=utc_now)
+    approved_by: str | None = None
+    approved_at: datetime | None = None
 
 
 class WorkflowState(TypedDict, total=False):

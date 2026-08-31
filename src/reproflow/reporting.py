@@ -33,9 +33,7 @@ class Narrator(Protocol):
 
 def _primary_metric(plan: ExperimentPlan) -> str:
     return (
-        "roc_auc"
-        if any(spec.name == "roc_auc" for spec in plan.metrics)
-        else plan.metrics[0].name
+        "roc_auc" if any(spec.name == "roc_auc" for spec in plan.metrics) else plan.metrics[0].name
     )
 
 
@@ -54,26 +52,24 @@ class MockNarrator:
                 successful, key=lambda row: float(row[f"{primary}_mean"])
             )
             interpretation = (
-                f"Among verified runs, {best['variant']} produced the strongest mean {primary}. "
-                "The aggregate table should be used for the exact values and baseline deltas."
+                f"在已验证（verified）的实验运行中，{best['variant']} 的平均 "
+                f"{primary} 表现最佳。具体数值及相对 baseline 的变化以汇总表为准。"
             )
         else:
-            interpretation = "No variant has enough verified metrics for a directional conclusion."
+            interpretation = "当前没有 variant 具备足够的已验证指标，暂时无法得出方向性结论。"
         failed = [row for row in run_rows if row.get("status") != RunStatus.SUCCEEDED.value]
         limitations = (
-            "This result is limited to the bundled dataset, approved variants, and fixed split "
-            "seeds. Failed or missing-metric runs are excluded from numerical conclusions."
+            "本结果仅适用于当前内置数据集、已审批的 variant 和固定数据划分种子。"
+            "运行失败或指标缺失的实验不会被纳入数值结论。"
         )
         if failed:
-            limitations += (
-                " The failure table must be resolved before treating the matrix as complete."
-            )
+            limitations += " 在将实验矩阵视为完整证据前，还需要处理失败清单中的问题。"
         return ReportNarrative(
             interpretation=interpretation,
             limitations=limitations,
             next_steps=(
-                "Repeat the comparison on an external dataset and inspect calibration, runtime, "
-                "and error slices before promoting the result into a broader paper claim."
+                "建议在外部数据集上重复比较，并进一步检查概率校准、运行时间与错误切片，"
+                "再决定是否将结果上升为更广泛的论文主张。"
             ),
         )
 
@@ -98,8 +94,9 @@ class APINarrator:
             "verified_aggregate": aggregate_rows,
             "verified_runs": run_rows,
             "instruction": (
-                "Return JSON with interpretation, limitations, and next_steps. Do not include any "
-                "digits or numerical values; the report template renders verified numbers itself."
+                "请使用简体中文返回 JSON，必须包含 interpretation、limitations 和 "
+                "next_steps 三个字段。不要在这三个字段中写任何数字或数值；"
+                "已验证的数值由报告模板单独渲染。"
             ),
         }
         response = self.client.chat.completions.create(
@@ -107,7 +104,10 @@ class APINarrator:
             messages=[
                 {
                     "role": "system",
-                    "content": "Interpret verified ML results without inventing evidence.",
+                    "content": (
+                        "你是科研实验报告助手。请用简体中文解读已验证的机器学习"
+                        "实验结果，不得虚构证据或引入输入中没有的结论。"
+                    ),
                 },
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ],

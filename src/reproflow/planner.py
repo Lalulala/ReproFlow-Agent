@@ -23,11 +23,10 @@ class MockPlanner:
     def create_plan(self, goal: str, context: ContextPack, project_root: Path) -> ExperimentPlan:
         script = "examples/sklearn_demo/experiment.py"
         return ExperimentPlan(
-            title="Three-model breast-cancer classification comparison",
+            title="三类模型的乳腺癌分类对比实验",
             goal=goal,
             hypothesis=(
-                "At least one non-linear model will improve mean ROC-AUC over logistic regression "
-                "across three fixed train/test splits."
+                "在三组固定的训练/测试划分上，至少有一种非线性模型的平均 ROC-AUC 会高于逻辑回归。"
             ),
             command=[sys.executable, script],
             variants=[
@@ -86,7 +85,8 @@ class APIPlanner:
             "rule": (
                 "Return only one JSON object. Keep the exact safe sklearn command, "
                 "variants, seeds, metrics and script_path from the example. "
-                "You may refine title, hypothesis and goal."
+                "You may refine title, hypothesis and goal. Use the same language as the user's "
+                "goal; when the goal is Chinese, title and hypothesis must use Simplified Chinese."
             ),
         }
         response = self.client.chat.completions.create(

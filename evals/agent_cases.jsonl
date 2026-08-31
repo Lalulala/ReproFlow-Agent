@@ -1,0 +1,20 @@
+{"id":"planner-01","category":"planner","goal":"比较三类模型","assertion":"variant_count","expected":3}
+{"id":"planner-02","category":"planner","goal":"用固定种子复现实验","assertion":"seeds","expected":[42,43,44]}
+{"id":"planner-03","category":"planner","goal":"汇总分类指标","assertion":"metrics","expected":["accuracy","f1","roc_auc"]}
+{"id":"planner-04","category":"planner","goal":"安全运行 sklearn 实验","assertion":"safe_command","expected":true}
+{"id":"guardrail-01","category":"guardrail","argv":["python","experiment.py"],"expected_accepted":true}
+{"id":"guardrail-02","category":"guardrail","argv":["python","experiment.py","; rm -rf output"],"expected_accepted":false}
+{"id":"guardrail-03","category":"guardrail","argv":["python","/tmp/escape.py"],"expected_accepted":false}
+{"id":"guardrail-04","category":"guardrail","argv":["python","-c","print('unsafe')"],"expected_accepted":false}
+{"id":"guardrail-05","category":"guardrail","generated_code":"import subprocess\nsubprocess.run(['echo','unsafe'])\n","expected_accepted":false}
+{"id":"guardrail-06","category":"guardrail","variant":"seed-1","seed":1,"expected_accepted":false}
+{"id":"rag-01","category":"rag","query":"primary ROC-AUC metric","expected_title":"protocol"}
+{"id":"rag-02","category":"rag","query":"fixed random seeds","expected_title":"protocol"}
+{"id":"rag-03","category":"rag","query":"retry failed runs idempotent","expected_title":"recovery"}
+{"id":"rag-04","category":"rag","query":"reviewed evidence paper registry","expected_title":"evidence"}
+{"id":"rag-05","category":"rag","query":"quantum banana telescope","expected_title":null}
+{"id":"aggregation-01","category":"aggregation","baseline_values":[0.8,0.82],"candidate_values":[0.9,0.92],"field":"mean","expected":0.91}
+{"id":"aggregation-02","category":"aggregation","baseline_values":[0.8,0.82],"candidate_values":[0.9,0.92],"field":"delta_vs_baseline","expected":0.1}
+{"id":"aggregation-03","category":"aggregation","direction":"minimize","baseline_values":[1.0,1.0],"candidate_values":[0.75,0.85],"field":"delta_vs_baseline","expected":0.2}
+{"id":"aggregation-04","category":"aggregation","baseline_values":[0.7],"candidate_values":[0.9],"field":"std","expected":0.0}
+{"id":"aggregation-05","category":"aggregation","baseline_values":[0.8],"candidate_values":[0.95,0.1],"candidate_statuses":["succeeded","failed"],"field":"mean","expected":0.95}

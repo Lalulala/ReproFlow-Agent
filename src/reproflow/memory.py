@@ -35,9 +35,7 @@ def remember_workflow(
     store.delete_workflow_memories(workflow_id)
     succeeded = [record for record in records if record.status == RunStatus.SUCCEEDED]
     primary = (
-        "roc_auc"
-        if any(spec.name == "roc_auc" for spec in plan.metrics)
-        else plan.metrics[0].name
+        "roc_auc" if any(spec.name == "roc_auc" for spec in plan.metrics) else plan.metrics[0].name
     )
     means: dict[str, float] = {}
     for variant in plan.variants:
@@ -81,9 +79,7 @@ def remember_workflow(
                 memory_id=f"mem-failure-{workflow_id}",
                 kind="failure",
                 workflow_id=workflow_id,
-                text=(
-                    f"Failure history for workflow {workflow_id}: " + "; ".join(failure_history)
-                ),
+                text=(f"Failure history for workflow {workflow_id}: " + "; ".join(failure_history)),
                 tags=["failure", "timeout", "retry", *[record.variant for record in records]],
             )
         )

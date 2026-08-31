@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">ReproFlow conversational experiment interface</title>
+  <desc id="desc">A product preview with experiment navigation, conversation history, agent plan, and approval controls.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3730a3"/>
+      <stop offset="1" stop-color="#6d5ce7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#172554" flood-opacity=".10"/>
+    </filter>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+      .muted { fill: #64748b; }
+      .nav { font-size: 19px; font-weight: 650; }
+      .small { font-size: 14px; }
+      .body { font-size: 18px; }
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/>
+
+  <rect x="28" y="28" width="330" height="844" rx="28" fill="#ffffff" filter="url(#shadow)"/>
+  <circle cx="72" cy="77" r="22" fill="url(#brand)"/>
+  <path d="M63 77h18M72 68v18" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <text x="108" y="86" class="sans" font-size="26" font-weight="760" fill="#172033">ReproFlow</text>
+  <text x="54" y="135" class="sans small muted" letter-spacing="1.6">科研实验 AGENT</text>
+
+  <rect x="48" y="166" width="290" height="58" rx="15" fill="#1e293b"/>
+  <path d="M71 190h18M71 198h12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="108" y="202" class="sans nav" fill="#fff">对话实验</text>
+  <text x="63" y="266" class="sans nav" fill="#475569">实验结果</text>
+  <text x="63" y="319" class="sans nav" fill="#475569">证据库</text>
+  <text x="63" y="372" class="sans nav" fill="#475569">知识与记忆</text>
+
+  <line x1="52" y1="407" x2="334" y2="407" stroke="#e2e8f0"/>
+  <text x="54" y="449" class="sans small muted" font-weight="700" letter-spacing="1">对话历史</text>
+  <rect x="48" y="472" width="290" height="52" rx="14" fill="#eef2ff"/>
+  <text x="69" y="504" class="sans" font-size="16" font-weight="650" fill="#3730a3">三类模型多种子比较</text>
+  <text x="68" y="553" class="sans" font-size="16" fill="#64748b">复现仓库 baseline</text>
+  <text x="68" y="599" class="sans" font-size="16" fill="#64748b">修复依赖并恢复实验</text>
+  <rect x="48" y="790" width="290" height="55" rx="15" fill="url(#brand)"/>
+  <text x="120" y="824" class="sans" font-size="17" font-weight="700" fill="#fff">＋ 新建对话</text>
+
+  <rect x="386" y="28" width="1026" height="844" rx="28" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="436" y="91" class="sans" font-size="31" font-weight="770" fill="#172033">对话实验</text>
+  <text x="436" y="124" class="sans body muted">描述研究目标，Agent 会探索仓库并给出可审核的实验方案。</text>
+  <rect x="1120" y="62" width="236" height="47" rx="13" fill="#f8fafc" stroke="#e2e8f0"/>
+  <circle cx="1148" cy="85" r="7" fill="#22c55e"/>
+  <text x="1166" y="92" class="sans" font-size="15" fill="#334155">DeepSeek API 已连接</text>
+
+  <rect x="582" y="166" width="774" height="82" rx="22" fill="#eef2ff"/>
+  <text x="616" y="198" class="sans small" font-weight="700" fill="#4338ca">你</text>
+  <text x="616" y="226" class="sans body" fill="#1e293b">比较 baseline 和新方法，用 42、43、44 三个随机种子。</text>
+
+  <circle cx="463" cy="292" r="25" fill="url(#brand)"/>
+  <path d="M452 292h22M456 284h14M456 300h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="500" y="270" width="856" height="390" rx="22" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="530" y="311" class="sans" font-size="16" font-weight="750" fill="#4338ca">REPROFLOW AGENT</text>
+  <text x="530" y="350" class="sans body" font-weight="700" fill="#172033">已完成仓库分析，建议执行以下实验计划</text>
+
+  <rect x="530" y="375" width="246" height="86" rx="16" fill="#fff" stroke="#e2e8f0"/>
+  <text x="551" y="405" class="sans small muted">实验矩阵</text>
+  <text x="551" y="438" class="sans" font-size="23" font-weight="760" fill="#172033">2 方法 × 3 seeds</text>
+  <rect x="793" y="375" width="246" height="86" rx="16" fill="#fff" stroke="#e2e8f0"/>
+  <text x="814" y="405" class="sans small muted">核心指标</text>
+  <text x="814" y="438" class="sans" font-size="23" font-weight="760" fill="#172033">ROC-AUC / F1</text>
+  <rect x="1056" y="375" width="270" height="86" rx="16" fill="#fff" stroke="#e2e8f0"/>
+  <text x="1077" y="405" class="sans small muted">依赖环境</text>
+  <text x="1077" y="438" class="sans" font-size="23" font-weight="760" fill="#172033">隔离 uv 环境</text>
+
+  <text x="530" y="503" class="sans small muted">执行入口</text>
+  <rect x="530" y="518" width="796" height="50" rx="12" fill="#0f172a"/>
+  <text x="552" y="550" class="sans" font-size="15" fill="#c4b5fd">python train.py --method baseline --seed 42</text>
+  <text x="530" y="603" class="sans small muted">安全检查：命令白名单、路径边界、源码哈希和产物目录均已验证</text>
+  <circle cx="1289" cy="598" r="8" fill="#22c55e"/>
+
+  <rect x="500" y="682" width="170" height="52" rx="14" fill="url(#brand)"/>
+  <text x="544" y="715" class="sans" font-size="16" font-weight="720" fill="#fff">批准并运行</text>
+  <rect x="684" y="682" width="170" height="52" rx="14" fill="#fff" stroke="#cbd5e1"/>
+  <text x="727" y="715" class="sans" font-size="16" font-weight="650" fill="#334155">修改计划</text>
+
+  <rect x="436" y="781" width="920" height="57" rx="17" fill="#f1f5f9"/>
+  <text x="466" y="816" class="sans" font-size="16" fill="#94a3b8">继续补充实验要求，或询问当前计划的判断依据……</text>
+  <circle cx="1318" cy="809" r="19" fill="#3730a3"/>
+  <path d="M1310 810l8-8 8 8M1318 803v14" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>

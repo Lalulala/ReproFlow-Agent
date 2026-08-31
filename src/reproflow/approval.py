@@ -27,4 +27,3 @@ def approve_plan(
         store.add_plan_event(plan_id, "approval_blocked", actor, details)
         raise UnsafePlanError(details)
     return store.approve_plan(plan_id, actor, reason), report
-

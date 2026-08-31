@@ -110,9 +110,7 @@ class WorkflowNodes:
         except SimulatedCrashError as error:
             working_state.setdefault("errors", []).append(str(error))
             self._save(working_state, "interrupted")
-            self.store.add_trace(
-                workflow_id, "execute_runs", "interrupted", {"error": str(error)}
-            )
+            self.store.add_trace(workflow_id, "execute_runs", "interrupted", {"error": str(error)})
             raise
         self.store.add_trace(
             workflow_id,
@@ -273,9 +271,7 @@ def start_workflow(
         raise ValueError(f"Plan must be approved before running; status={plan.status.value}")
     report = run_preflight(plan, root)
     if not report.safe:
-        details = "; ".join(
-            f"{check.name}: {check.detail}" for check in report.blocking_failures
-        )
+        details = "; ".join(f"{check.name}: {check.detail}" for check in report.blocking_failures)
         raise ValueError(f"Preflight failed: {details}")
     faults = _validate_faults(
         plan,

@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .human_views import render_evidence_registry_markdown
 from .models import ClaimStatus, EvidenceClaim, RunRecord, RunStatus
 from .runner import config_hash, git_commit
 from .storage import Store
@@ -40,9 +41,7 @@ def propose_evidence(project_root: str | Path, workflow_id: str) -> list[Evidenc
     if baseline_row is None:
         raise ValueError("Aggregate results do not contain the approved baseline")
     primary = (
-        "roc_auc"
-        if any(spec.name == "roc_auc" for spec in plan.metrics)
-        else plan.metrics[0].name
+        "roc_auc" if any(spec.name == "roc_auc" for spec in plan.metrics) else plan.metrics[0].name
     )
     metric_spec = next(spec for spec in plan.metrics if spec.name == primary)
     claims: list[EvidenceClaim] = []
@@ -60,10 +59,9 @@ def propose_evidence(project_root: str | Path, workflow_id: str) -> list[Evidenc
             if metric_spec.direction == "maximize"
             else baseline_value - observed_value
         )
-        complete = (
-            int(row["successful_runs"]) == len(plan.seeds)
-            and int(baseline_row["successful_runs"]) == len(plan.seeds)
-        )
+        complete = int(row["successful_runs"]) == len(plan.seeds) and int(
+            baseline_row["successful_runs"]
+        ) == len(plan.seeds)
         if not complete or improvement == 0:
             proposed_status = "inconclusive"
         elif improvement > 0:
@@ -133,9 +131,7 @@ def propose_evidence(project_root: str | Path, workflow_id: str) -> list[Evidenc
     return claims
 
 
-def approve_claim(
-    project_root: str | Path, claim_id: str, actor: str
-) -> EvidenceClaim:
+def approve_claim(project_root: str | Path, claim_id: str, actor: str) -> EvidenceClaim:
     store = Store(project_root)
     claim = store.get_claim(claim_id)
     if claim.status != ClaimStatus.PROPOSED:
@@ -153,9 +149,7 @@ def approve_claim(
     return claim
 
 
-def mark_claim_stale(
-    project_root: str | Path, claim_id: str, reason: str
-) -> EvidenceClaim:
+def mark_claim_stale(project_root: str | Path, claim_id: str, reason: str) -> EvidenceClaim:
     store = Store(project_root)
     claim = store.get_claim(claim_id)
     if claim.status == ClaimStatus.PROPOSED:
@@ -167,9 +161,7 @@ def mark_claim_stale(
     return claim
 
 
-def audit_claim_staleness(
-    project_root: str | Path, claim_id: str, plan_id: str
-) -> EvidenceClaim:
+def audit_claim_staleness(project_root: str | Path, claim_id: str, plan_id: str) -> EvidenceClaim:
     root = Path(project_root).resolve()
     store = Store(root)
     claim = store.get_claim(claim_id)
@@ -200,21 +192,7 @@ def sync_evidence(project_root: str | Path) -> tuple[Path, Path]:
     registry_temp.write_text(registry_text, encoding="utf-8")
     registry_temp.replace(registry_path)
 
-    lines = [
-        "# Generated Evidence Results",
-        "",
-        "> Generated from reviewed Evidence Registry entries. Do not edit manually.",
-        "",
-        "| Claim ID | Status | Claim | Metric | Baseline | Observed | Delta | Workflow |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | --- |",
-    ]
-    for claim in claims:
-        lines.append(
-            f"| {claim.claim_id} | {claim.status.value} | {claim.claim} | {claim.metric} | "
-            f"{claim.baseline_value:.10g} | {claim.observed_value:.10g} | "
-            f"{claim.delta:.10g} | {claim.workflow_id} |"
-        )
     results_temp = paper_dir / ".generated_results.md.tmp"
-    results_temp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    results_temp.write_text(render_evidence_registry_markdown(claims), encoding="utf-8")
     results_temp.replace(results_path)
     return registry_path, results_path

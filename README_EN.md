@@ -1,8 +1,15 @@
 # ReproFlow Agent
 
+[![CI](https://github.com/Lalulala/ReproFlow-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Lalulala/ReproFlow-Agent/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://www.python.org/)
+[![Agent evals](https://img.shields.io/badge/Agent%20evals-20%2F20-1f883d.svg)](evals/latest_results.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ReproFlow is a reproducible agent workflow for machine-learning experiments and paper evidence.
 
-The Day 6 milestone completes:
+![ReproFlow conversational experiment UI](docs/assets/ui-overview.svg)
+
+The Day 6 and repository-agent milestones complete:
 
 ```text
 goal → RAG and experiment memory → structured plan → human approval
@@ -27,7 +34,15 @@ goal → RAG and experiment memory → structured plan → human approval
 - Proposed Evidence Claims linked to runs, metrics, commits, configuration hashes, and artifacts.
 - Reviewed evidence synchronization limited to `paper/evidence_registry.jsonl` and
   `paper/generated_results.md`.
-- Four Streamlit pages: Workflow, Runs, Evidence, and Knowledge.
+- A repository-level Agent that inspects a local Git repository, chooses which files to read,
+  proposes auditable code diffs, defines the run matrix and metrics, and executes only after
+  human approval.
+- Dependency Preflight compares requested repository requirements with the current environment and
+  proposes a project-owned uv virtual environment when packages or Python versions conflict.
+- Repair Agent turns bounded failure logs into a separate draft plan with a new diff, dependency
+  decision, and approval gate; it never overwrites or silently approves the failed plan.
+- Four UI entries: Chat Experiments, Results, Evidence Registry, and Knowledge & Memory. Structured
+  workflow and repository execution remain underlying Agent and CLI capabilities.
 
 ## Quick start
 
@@ -47,6 +62,51 @@ uv run reproflow run <plan_id>
 
 The completed workflow automatically writes metrics, summaries, a plot, memories, `report.md`,
 and proposed Evidence Claims.
+
+## Run against an existing repository
+
+Inspect a repository without writing files or running commands:
+
+```bash
+uv run reproflow repo inspect /path/to/repository \
+  --goal "reproduce the main experiment and compare three seeds"
+```
+
+After loading an OpenAI-compatible API configuration, ask the Agent to inspect the repository and
+propose its own code and execution plan:
+
+```bash
+set -a
+source .env
+set +a
+
+uv run reproflow repo plan /path/to/repository \
+  --goal "reproduce the main experiment and compare three seeds" \
+  --agent api
+```
+
+Review the generated `repo_plans/<repo_plan_id>.md`, then approve and execute it:
+
+```bash
+uv run reproflow repo show <repo_plan_id>
+uv run reproflow repo dependencies <repo_plan_id>
+uv run reproflow repo approve <repo_plan_id> --actor Ethan
+uv run reproflow repo run <repo_plan_id>
+uv run reproflow repo resume <repo_plan_id>  # retry only failed runs
+```
+
+Create a separately reviewed repair after a runtime or environment failure:
+
+```bash
+uv run reproflow repo repair <failed_repo_plan_id> \
+  --feedback "preserve the experiment matrix and repair the root cause"
+uv run reproflow repo approve <new_repair_plan_id> --actor Ethan
+uv run reproflow repo run <new_repair_plan_id>
+```
+
+API mode sends filtered and redacted source snippets to the configured provider. `.env`,
+credentials, private keys, binaries, datasets, caches, and virtual environments are excluded.
+Before approval, the Agent performs no code writes and executes no repository commands.
 
 ## Knowledge and memory
 
@@ -91,20 +151,43 @@ uv run reproflow evidence audit-stale <claim_id> --plan-id <plan_id>
 uv run reproflow ui
 ```
 
-The UI creates plans from goals, exposes the separate approval and run controls, and shows workflow
-traces, run metrics and plots, evidence review/sync, and local knowledge/memory search.
+The default Chat Experiments page accepts natural-language experiment requests, presents repository
+inspection findings and code diffs inside the conversation, and keeps approval and execution as
+explicit buttons. Starting a chat creates only a transient draft: it is added to history and named
+from the first request only after the first assistant response completes. Conversations and linked
+plan IDs are then persisted in the project SQLite database, so a previous session can be resumed
+from the sidebar after restarting the UI. The sidebar uses dark full-width active buttons without
+radio dots and does not expose the local project path. Results and Evidence first select a readable
+experiment label containing title, status, timestamp, and short ID. Knowledge & Memory can use either
+project-wide scope or one experiment, filtering reports and memories accordingly. Structured workflow
+and repository execution remain behind the Agent and available through the CLI.
 
 ## Verification
 
 ```bash
-uv run ruff check src tests
-REPROFLOW_RAG_BACKEND=lexical uv run pytest tests -q
+uv run ruff check src tests scripts
+REPROFLOW_RAG_BACKEND=lexical uv run pytest tests \
+  --cov=reproflow --cov-fail-under=80 -q
+uv run reproflow eval --project . --minimum-passes 18
 ```
 
-All 34 tests pass. The Day 5/6 core module set has 81% combined coverage. The real acceptance audit
+All 50 automated tests pass with 85.84% core coverage. The deterministic Agent acceptance suite passes
+20/20 cases across planning, command guardrails, RAG retrieval, and metric consistency; see
+[`evals/latest_results.json`](evals/latest_results.json). The acceptance audit
 confirmed historical-memory reuse in a second plan, local Chroma/MiniLM retrieval over 16 chunks,
-traceable report numbers, an evidence approval gate, stale detection, and zero exceptions across
-all four Streamlit pages.
+traceable report numbers, an evidence approval gate, stale detection, and experiment-scoped Results,
+Evidence, and Memory pages. Repository-agent tests additionally cover source discovery, code creation
+only after approval, source-drift blocking, secret exclusion/redaction, the CLI approval chain, and
+a complete nine-run sklearn experiment.
+
+Real API planning and controlled execution were also evaluated against micrograd,
+homemade-machine-learning, and ML-From-Scratch. See
+[`evals/repository_compatibility.md`](evals/repository_compatibility.md) for the success matrix,
+failure analysis, and fixes applied.
+
+Release materials include the [architecture and trust boundaries](docs/architecture.md),
+[two-minute demo script](scripts/demo_2min.md), [security policy](SECURITY.md), and
+[version history](CHANGELOG.md).
 
 The experiment-loop design is inspired by Andrej Karpathy's
 [autoresearch](https://github.com/karpathy/autoresearch). ReproFlow generalizes it into a safe,

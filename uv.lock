@@ -1995,7 +1995,7 @@ wheels = [
 
 [[package]]
 name = "reproflow-agent"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "chromadb" },
@@ -2005,6 +2005,7 @@ dependencies = [
     { name = "langgraph-checkpoint-sqlite" },
     { name = "matplotlib" },
     { name = "openai" },
+    { name = "packaging" },
     { name = "pydantic" },
     { name = "pypdf" },
     { name = "pyyaml" },
@@ -2029,6 +2030,7 @@ requires-dist = [
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.1,<4" },
     { name = "matplotlib", specifier = ">=3.11,<4" },
     { name = "openai", specifier = ">=1.50,<3" },
+    { name = "packaging", specifier = ">=24,<27" },
     { name = "pydantic", specifier = ">=2.9,<3" },
     { name = "pypdf", specifier = ">=6,<7" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3,<9" },
